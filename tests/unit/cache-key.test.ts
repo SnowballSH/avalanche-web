@@ -8,7 +8,7 @@ const pin: PinEntry = {
 	label: "4.0.0+ (master, 2026-09-27)",
 	date: "2026-09-27",
 	sha256: "ab".repeat(32),
-	bytes: 50_897_196,
+	bytes: 25_698_005,
 };
 
 describe("pin cache key", () => {

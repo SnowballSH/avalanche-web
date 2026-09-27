@@ -84,10 +84,11 @@ identical `.zst` and `.gz` siblings. A control build of the same commit
 without `-Dversion` produced a different module
 (`18eca58ba1b03dcae2cf11a39d5dc6dc81aefed662c8024e960c2947592d0f5c`) that
 reports `id name Avalanche Compiled at 2026-09-27-22:31 UTC`, which is why
-the build script requires the version argument. If a platform ever
-produced a different digest, the served `sha256` would still be correct for
-the bytes actually served, since it is measured from the output rather than
-declared.
+the build script requires the version argument. The first CI build on
+Ubuntu (run 36355652622, head 35818d3) reported the same digest and size. If
+a platform ever produced a different digest, the served `sha256` would still
+be correct for the bytes actually served, since it is measured from the
+output rather than declared.
 
 ## CI
 

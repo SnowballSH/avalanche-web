@@ -7,8 +7,8 @@ const firstPin = {
 	commit: "9b7ee6ff829dcfb5ee5e48d8dcb83bd44c26a642",
 	label: "4.0.0+ (master, 2026-09-27)",
 	date: "2026-09-27",
-	sha256: "9b7ee6f0".padEnd(64, "a"),
-	bytes: 50_897_196,
+	sha256: "ab".repeat(32),
+	bytes: 25_698_005,
 };
 
 const served = { abi: 1, pins: [firstPin] };

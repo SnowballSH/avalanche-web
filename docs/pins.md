@@ -14,8 +14,8 @@ in this repository; the engine's source stays in
 	"abi": 1,
 	"pins": [
 		{
-			"id": "master-8c66796",
-			"commit": "8c66796067c944c0188c62ee9254b8f421ffd19e",
+			"id": "master-9b7ee6f",
+			"commit": "9b7ee6ff829dcfb5ee5e48d8dcb83bd44c26a642",
 			"label": "4.0.0+ (master, 2026-09-27)",
 			"date": "2026-09-27"
 		}
@@ -44,13 +44,16 @@ scripts/build-pins.sh <outdir>
 
 For each pin, in catalogue order:
 
-1. `scripts/build-avalanche-wasm.sh <commit> <outdir>/engines/<id>/avalanche.wasm`
+1. `scripts/build-avalanche-wasm.sh <commit> <outdir>/engines/<id>/avalanche.wasm <id>`
    shallow-fetches the commit into a bare cache (`.cache/avalanche.git`, or
    `AVALANCHE_GIT_CACHE`), extracts it with `git archive` into a scratch
-   directory, and runs `zig build wasm --release=fast` with Zig 0.16.0. The
-   checkout is always clean: nothing but the commit's tree is present. With
-   `AVALANCHE_REPO` set to a local clone, the commit's objects come from
-   there instead, still without reading its working tree.
+   directory, and runs `zig build wasm --release=fast -Dversion=<id>` with
+   Zig 0.16.0. The checkout is always clean: nothing but the commit's tree is
+   present. With `AVALANCHE_REPO` set to a local clone, the commit's objects
+   come from there instead, still without reading its working tree.
+   `-Dversion` is what `uci` reports after `id name Avalanche`; since
+   9b7ee6f a build without it embeds its build timestamp instead, so the
+   bytes, and the digest, would differ on every run.
 2. `node scripts/check-abi.ts` compares the module's imports and exports,
    names and kinds, with `vendor/avalanche-web-abi1/abi.json` and fails the
    build on any difference.
@@ -73,14 +76,18 @@ carry Node as well as Zig.
 
 ## Reproducibility
 
-The 8c66796 build is byte-stable: two runs on the same machine, the second
-with an empty Zig global cache (`ZIG_GLOBAL_CACHE_DIR` pointed at a fresh
-directory), produced the same 50 897 196-byte wasm with sha256
-`0ce54b47cc8fe350f6b19053da242af4e8cec0a7457b607b5ec600ba3855abc9`, and
-identical `.zst` and `.gz` siblings. The first CI build on Ubuntu (run
-36346609456) reported the same digest and size. If a platform ever produced a
-different digest, the served `sha256` would still be correct for the bytes
-actually served, since it is measured from the output rather than declared.
+The 9b7ee6f build is byte-stable: three runs on the same machine, one with an
+empty Zig global cache (`ZIG_GLOBAL_CACHE_DIR` pointed at a fresh directory),
+produced the same 25 698 005-byte wasm with sha256
+`c4f96c537ae5a3a1ece49642aa67a034e2bc570213413dadc91233a6c5a4cb80`, and
+identical `.zst` and `.gz` siblings. A control build of the same commit
+without `-Dversion` produced a different module
+(`18eca58ba1b03dcae2cf11a39d5dc6dc81aefed662c8024e960c2947592d0f5c`) that
+reports `id name Avalanche Compiled at 2026-09-27-22:31 UTC`, which is why
+the build script requires the version argument. If a platform ever
+produced a different digest, the served `sha256` would still be correct for
+the bytes actually served, since it is measured from the output rather than
+declared.
 
 ## CI
 
@@ -96,7 +103,7 @@ at the first pin.
 
 1. Pick a commit on the public repository, not older than `910711f`, and
    confirm its wasm exports and imports match `abi.json`
-   (`scripts/build-avalanche-wasm.sh <commit> /tmp/candidate.wasm` then
+   (`scripts/build-avalanche-wasm.sh <commit> /tmp/candidate.wasm <id>` then
    `node scripts/check-abi.ts /tmp/candidate.wasm`). A commit whose ABI
    differs needs a new ABI version: a new `vendor/avalanche-web-abi<N>/`
    directory produced by `scripts/vendor-abi.sh`, its own `abi.json` from

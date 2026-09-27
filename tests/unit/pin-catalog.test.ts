@@ -3,11 +3,11 @@ import { createPinCatalog, parseServedPinCatalogue } from "../../src/lib/pins/ca
 import { PinCatalogueError } from "../../src/lib/pins/catalogue-source";
 
 const firstPin = {
-	id: "master-8c66796",
-	commit: "8c66796067c944c0188c62ee9254b8f421ffd19e",
+	id: "master-9b7ee6f",
+	commit: "9b7ee6ff829dcfb5ee5e48d8dcb83bd44c26a642",
 	label: "4.0.0+ (master, 2026-09-27)",
 	date: "2026-09-27",
-	sha256: "0ce54b47".padEnd(64, "a"),
+	sha256: "9b7ee6f0".padEnd(64, "a"),
 	bytes: 50_897_196,
 };
 

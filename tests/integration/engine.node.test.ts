@@ -9,11 +9,11 @@ import { startNodeClient } from "../../vendor/avalanche-web-abi1/src/node/client
 
 const FIXTURE_PATH = process.env.AVALANCHE_FIXTURE_WASM
 	? pathToFileURL(process.env.AVALANCHE_FIXTURE_WASM)
-	: new URL("../../.cache/fixtures/avalanche-8c66796.wasm", import.meta.url);
+	: new URL("../../.cache/fixtures/avalanche-9b7ee6f.wasm", import.meta.url);
 
 const pin: PinEntry = {
-	id: "master-8c66796",
-	commit: "8c66796067c944c0188c62ee9254b8f421ffd19e",
+	id: "master-9b7ee6f",
+	commit: "9b7ee6ff829dcfb5ee5e48d8dcb83bd44c26a642",
 	label: "4.0.0+ (master, 2026-09-27)",
 	date: "2026-09-27",
 	sha256: "fixture",
@@ -53,7 +53,7 @@ async function collect(infos: AsyncIterable<SearchInfo>): Promise<SearchInfo[]> 
 	return seen;
 }
 
-describe("EngineHost against the real 8c66796 wasm", () => {
+describe("EngineHost against the real 9b7ee6f wasm", () => {
 	const host = new WorkerEngineHost(connectNodeWorker);
 	const notices: EngineNotice[] = [];
 	let session: UciSession;
@@ -70,6 +70,10 @@ describe("EngineHost against the real 8c66796 wasm", () => {
 
 	afterAll(async () => {
 		await host.terminate();
+	});
+
+	it("reports the pin id as its version", () => {
+		expect(rawLines).toContain(`id name Avalanche ${pin.id}`);
 	});
 
 	it("completes the handshake and applies Hash", () => {

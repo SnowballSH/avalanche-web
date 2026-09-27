@@ -39,6 +39,6 @@ jobs:
       - run: scripts/check-pins-abi.sh build-pins/out
       - run: npm run test:integration
         env:
-          AVALANCHE_FIXTURE_WASM: build-pins/out/engines/master-8c66796/avalanche.wasm
+          AVALANCHE_FIXTURE_WASM: build-pins/out/engines/master-9b7ee6f/avalanche.wasm
       - run: npx playwright install --with-deps chromium webkit
       - run: npm run test:e2e

@@ -143,11 +143,12 @@ that is no longer the held one is a no-op.
 
 The integration test, `npm run test:integration`, runs
 `tests/integration/engine.node.test.ts` under `vitest.integration.config.ts`
-against the real `master-8c66796` wasm in a Node worker thread. The fixture
+against the real `master-9b7ee6f` wasm in a Node worker thread. The fixture
 comes from `scripts/fetch-fixture-wasm.sh`, which builds the commit with Zig
-0.16.0 from a scratch worktree of `AVALANCHE_REPO` (or a shallow fetch from
-GitHub) into the git-ignored `.cache/fixtures/`, and reuses the file once it
-exists. CI does not run it, since the runner has no Zig.
+0.16.0 and `-Dversion=master-9b7ee6f` from a scratch checkout of
+`AVALANCHE_REPO` (or a shallow fetch from GitHub) into the git-ignored
+`.cache/fixtures/`, and reuses the file once it exists. CI runs it against
+the pin it has just built, through `AVALANCHE_FIXTURE_WASM`.
 
 ## Planned layout
 
@@ -264,7 +265,7 @@ line: `play` → `chess` → `engine` → `pins`, with no cycles.
   with `missing`, and callers run `download` first. `download` on a pin the
   cache already holds reports `1` and resolves without a fetch. The transfer
   is fetched with `cache: "no-store"` so the HTTP cache holds no second copy
-  of a 51 MB file. A `200` whose `Content-Type` is not `application/wasm` is
+  of a 25 MB file. A `200` whose `Content-Type` is not `application/wasm` is
   a `network` failure, not `corrupt`: the container's `try_files` answers a
   pin missing from the image with the HTML shell. The body lands in one
   preallocated buffer of `PinEntry.bytes`; one that overruns or falls short

@@ -6,8 +6,8 @@ import type { PinEntry } from "../../src/lib/pins/types";
 import { fakeConnections } from "./helpers/fake-engine";
 
 const pinA: PinEntry = {
-	id: "master-8c66796",
-	commit: "8c66796067c944c0188c62ee9254b8f421ffd19e",
+	id: "master-9b7ee6f",
+	commit: "9b7ee6ff829dcfb5ee5e48d8dcb83bd44c26a642",
 	label: "4.0.0+ (master, 2026-09-27)",
 	date: "2026-09-27",
 	sha256: "ab".repeat(32),

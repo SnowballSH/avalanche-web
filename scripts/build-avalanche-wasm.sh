@@ -2,7 +2,11 @@
 # Builds Avalanche's wasm from a clean checkout of one commit and writes it to the
 # given path. This is the single build path for pins and test fixtures.
 #
-#   scripts/build-avalanche-wasm.sh <commit> <destination.wasm>
+#   scripts/build-avalanche-wasm.sh <commit> <destination.wasm> <version>
+#
+# <version> is passed as -Dversion, the string `uci` reports after "id name
+# Avalanche"; pins pass their id. Without it the engine embeds the build timestamp
+# and the module's bytes differ on every build.
 #
 # The commit's objects come from AVALANCHE_REPO, a local clone, when that is set;
 # otherwise from a bare cache at AVALANCHE_GIT_CACHE (default .cache/avalanche.git),
@@ -16,8 +20,9 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 commit="${1:-}"
 destination="${2:-}"
-if [[ -z "$commit" || -z "$destination" ]]; then
-	echo "usage: $0 <commit> <destination.wasm>" >&2
+version="${3:-}"
+if [[ -z "$commit" || -z "$destination" || -z "$version" ]]; then
+	echo "usage: $0 <commit> <destination.wasm> <version>" >&2
 	exit 2
 fi
 
@@ -47,8 +52,8 @@ checkout="$scratch/avalanche"
 mkdir -p "$checkout"
 git -C "$source_repo" archive --format=tar "$full_commit" | tar -x -C "$checkout"
 
-echo "build-avalanche-wasm: building $full_commit" >&2
-(cd "$checkout" && zig build wasm --release=fast) >&2
+echo "build-avalanche-wasm: building $full_commit as version $version" >&2
+(cd "$checkout" && zig build wasm --release=fast "-Dversion=$version") >&2
 
 mkdir -p "$(dirname "$destination")"
 cp "$checkout/zig-out/web/avalanche.wasm" "$destination.partial"

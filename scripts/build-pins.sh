@@ -36,7 +36,7 @@ mkdir -p "$outdir/engines"
 while IFS=$'\t' read -r id commit; do
 	wasm="$outdir/engines/$id/avalanche.wasm"
 	echo "build-pins: pin $id ($commit)" >&2
-	"$root/scripts/build-avalanche-wasm.sh" "$commit" "$wasm"
+	"$root/scripts/build-avalanche-wasm.sh" "$commit" "$wasm" "$id"
 	node "$root/scripts/check-abi.ts" "$wasm"
 	zstd --quiet --force --ultra -22 -T0 "$wasm" -o "$wasm.zst"
 	gzip --best --no-name --keep --force "$wasm"

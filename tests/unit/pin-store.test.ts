@@ -29,7 +29,7 @@ function pinFor(id: string, bytes: Uint8Array): PinEntry {
 }
 
 const firstBytes = wasmBytes(1000, 1);
-const firstPin = pinFor("master-8c66796", firstBytes);
+const firstPin = pinFor("master-9b7ee6f", firstBytes);
 const secondBytes = wasmBytes(400, 2);
 const secondPin = pinFor("master-910711f", secondBytes);
 

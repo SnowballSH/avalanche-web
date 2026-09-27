@@ -24,7 +24,7 @@ function pin(id: string): PinEntry {
 }
 
 const older = pin("master-910711f");
-const newest = pin("master-8c66796");
+const newest = pin("master-9b7ee6f");
 const catalogue: PinCatalogData = { abi: 1, pins: [newest, older] };
 
 class MemoryStorage {

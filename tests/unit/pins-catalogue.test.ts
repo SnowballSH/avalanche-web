@@ -7,8 +7,8 @@ import {
 } from "../../src/lib/pins/catalogue-source";
 
 const firstPin = {
-	id: "master-8c66796",
-	commit: "8c66796067c944c0188c62ee9254b8f421ffd19e",
+	id: "master-9b7ee6f",
+	commit: "9b7ee6ff829dcfb5ee5e48d8dcb83bd44c26a642",
 	label: "4.0.0+ (master, 2026-09-27)",
 	date: "2026-09-27",
 };
@@ -26,7 +26,7 @@ function rejection(data: unknown): string {
 }
 
 describe("parsePinCatalogueSource", () => {
-	it("accepts the repository catalogue, whose first pin is master-8c66796", () => {
+	it("accepts the repository catalogue, whose first pin is master-9b7ee6f", () => {
 		expect(parsePinCatalogueSource(source)).toEqual({ abi: 1, pins: [firstPin] });
 	});
 
@@ -42,11 +42,11 @@ describe("parsePinCatalogueSource", () => {
 	it("rejects a duplicate id", () => {
 		expect(
 			rejection({ abi: 1, pins: [firstPin, { ...firstPin, commit: "a".repeat(40) }] }),
-		).toMatch(/duplicate id "master-8c66796"/);
+		).toMatch(/duplicate id "master-9b7ee6f"/);
 	});
 
 	it("rejects a commit that is not 40 lowercase hex characters", () => {
-		expect(rejection({ abi: 1, pins: [{ ...firstPin, commit: "8c66796" }] })).toMatch(/commit/);
+		expect(rejection({ abi: 1, pins: [{ ...firstPin, commit: "9b7ee6f" }] })).toMatch(/commit/);
 		expect(
 			rejection({ abi: 1, pins: [{ ...firstPin, commit: firstPin.commit.toUpperCase() }] }),
 		).toMatch(/commit/);
@@ -59,7 +59,7 @@ describe("parsePinCatalogueSource", () => {
 	});
 
 	it("rejects an id that is not a URL path segment of [a-z0-9.-]", () => {
-		expect(rejection({ abi: 1, pins: [{ ...firstPin, id: "master/8c66796" }] })).toMatch(/id/);
+		expect(rejection({ abi: 1, pins: [{ ...firstPin, id: "master/9b7ee6f" }] })).toMatch(/id/);
 		expect(rejection({ abi: 1, pins: [{ ...firstPin, id: "" }] })).toMatch(/id/);
 	});
 
@@ -88,7 +88,7 @@ describe("withMeasurements", () => {
 		}));
 		expect(served).toEqual({
 			abi: 1,
-			pins: [{ ...firstPin, sha256: "master-8c66796-digest", bytes: 51 }],
+			pins: [{ ...firstPin, sha256: "master-9b7ee6f-digest", bytes: 51 }],
 		});
 	});
 });

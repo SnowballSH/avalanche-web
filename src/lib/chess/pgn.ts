@@ -77,7 +77,7 @@ const resolveStart = (game: PgnGame, index: number): ImportResult<StartPosition>
 		const fen = fenHeader ?? INITIAL_FEN;
 		const scharnagl = frcNumber(fen);
 		if (scharnagl !== undefined) return { ok: true, value: { kind: "frc", scharnagl } };
-		const parsed = parseFen(fen);
+		const parsed = parseFen(fen, { chess960: true });
 		if (!parsed.ok) return failure({ ...parsed.error, game: index });
 		return failure({
 			kind: "unsupported-variant",

@@ -329,9 +329,14 @@ consecutive `addMove` calls do not re-parse the parent.
   king-takes-rook (`e1h1`).
 
 `addMove` accepts either form on input; chessops normalises both. A `fen`
-start whose castling rooks are not on the a- and h-files is not supported
-(the engine would need `UCI_Chess960` for it), so a Chess960 PGN must start
-from one of the 960 start positions.
+start always runs in standard mode, so a position whose castling rights do
+not have the king on the e-file and the rook on the a- or h-file cannot be
+played from it: `parseFen` rejects it with `unsupported-variant` (the message
+points at the FRC start; dropping the castling rights makes it acceptable)
+unless the caller passes `{ chess960: true }`, which the FRC paths do. That
+is why a Chess960 PGN must start from one of the 960 start positions, and
+`createGameTree` throws `InvalidStartError` (carrying the same `ImportError`)
+for a `fen` start that `parseFen` would reject.
 
 `parseFen` (`fen.ts`) validates the text and the legality of the setup and
 returns the normalised FEN or an `invalid-fen` error. `frcFen(n)` (`frc.ts`)
@@ -350,7 +355,8 @@ in the text is a game. It parses the text and returns the games with their
 headers, but replays no moves: each `ImportedGame.tree()` resolves that
 game's start and builds its tree on first call (memoised), returning
 `invalid-fen`, `unsupported-variant` or `illegal-move` (with the game index,
-the 1-based ply and the SAN) as a typed error. So a 5 MB paste costs only the
+the 1-based ply and the SAN) as a typed error. An illegal move rejects the
+whole game: no prefix of it is kept. So a 5 MB paste costs only the
 parse, and a broken game does not block the others: the picker lists every
 game and the error appears for the one the user opens. Nothing in the import
 path throws on bad input.
@@ -375,6 +381,9 @@ its NAGs and comments, and appends evaluation comments when `evals` is set.
 stalemate, insufficient material, the fifty-move rule (halfmove clock at
 100) and threefold repetition, where `history` is the FEN of every earlier
 position in the game and repetition compares the first four FEN fields.
+Insufficient material follows chessops: bare kings, a lone minor piece, or
+bishops that all stand on one colour draw, while opposite-coloured bishops
+and two knights against a bare king do not.
 `drawOfferAccepted(scores)` takes the engine's final score for each of its
 own moves, oldest first, and accepts when there are at least ten and the last
 ten are all exact centipawn scores within ±20; a mate score or a bounded

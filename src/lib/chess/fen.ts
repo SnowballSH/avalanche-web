@@ -1,7 +1,7 @@
-import { Chess, isNormal, type Move, type Position } from "chessops";
+import { type Castles, Chess, COLORS, isNormal, type Move, type Position } from "chessops";
 import { castlingSide, normalizeMove } from "chessops/chess";
 import { makeFen, parseFen as parseSetup } from "chessops/fen";
-import { kingCastlesTo, makeUci } from "chessops/util";
+import { kingCastlesTo, makeUci, squareFile } from "chessops/util";
 import type { Fen, UciMove } from "$lib/engine/types";
 import type { ImportError, ImportResult, ParsedFen } from "./types";
 
@@ -64,7 +64,27 @@ const describeFenError = (code: string): string => {
 	}
 };
 
-export const parseFen = (text: string): ImportResult<ParsedFen> => {
+const KING_FILE = 4;
+const STANDARD_ROOK_FILES = { a: 0, h: 7 } as const;
+
+const hasStandardCastlingGeometry = (position: Position): boolean =>
+	COLORS.every((color) => {
+		const king = position.board.kingOf(color);
+		const rooks: Castles["rook"][typeof color] = position.castles.rook[color];
+		for (const side of ["a", "h"] as const) {
+			const rook = rooks[side];
+			if (rook === undefined) continue;
+			if (king === undefined || squareFile(king) !== KING_FILE) return false;
+			if (squareFile(rook) !== STANDARD_ROOK_FILES[side]) return false;
+		}
+		return true;
+	});
+
+export interface ParseFenOptions {
+	readonly chess960?: boolean;
+}
+
+export const parseFen = (text: string, options?: ParseFenOptions): ImportResult<ParsedFen> => {
 	const oversized = importSizeError(text);
 	if (oversized) return { ok: false, error: oversized };
 	const trimmed = text.trim();
@@ -74,6 +94,16 @@ export const parseFen = (text: string): ImportResult<ParsedFen> => {
 	const position = Chess.fromSetup(setup.value);
 	if (position.isErr) {
 		return invalidFen(`Illegal position: ${describeSetupError(position.error.message)}`);
+	}
+	if (!options?.chess960 && !hasStandardCastlingGeometry(position.value)) {
+		return {
+			ok: false,
+			error: {
+				kind: "unsupported-variant",
+				message:
+					"This position's castling rights need Chess960 rules: start it as an FRC game, or remove the castling rights",
+			},
+		};
 	}
 	return { ok: true, value: { fen: makeFen(position.value.toSetup()) } };
 };

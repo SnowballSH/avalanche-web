@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createGameTree, IllegalMoveError } from "../../src/lib/chess/tree";
+import { createGameTree, IllegalMoveError, InvalidStartError } from "../../src/lib/chess/tree";
 import type { GameTree } from "../../src/lib/chess/types";
 import type { SearchInfo } from "../../src/lib/engine/types";
 
@@ -46,9 +46,27 @@ describe("createGameTree", () => {
 		);
 	});
 
-	it("rejects an invalid FEN start and a Scharnagl number out of range", () => {
-		expect(() => createGameTree({ kind: "fen", fen: "not a fen" })).toThrow();
+	it("rejects an invalid FEN start with a typed error and a Scharnagl number out of range", () => {
+		expect(() => createGameTree({ kind: "fen", fen: "not a fen" })).toThrowError(
+			expect.objectContaining({
+				name: "InvalidStartError",
+				error: expect.objectContaining({ kind: "invalid-fen" }),
+			}),
+		);
+		expect(() => createGameTree({ kind: "fen", fen: "not a fen" })).toThrow(InvalidStartError);
 		expect(() => createGameTree({ kind: "frc", scharnagl: 960 })).toThrow(RangeError);
+	});
+
+	it("rejects a fen start whose castling rights need Chess960 rules", () => {
+		const fen = "bbqnnrkr/pppppppp/8/8/8/8/PPPPPPPP/BBQNNRKR w KQkq - 0 1";
+		expect(() => createGameTree({ kind: "fen", fen })).toThrowError(
+			expect.objectContaining({
+				name: "InvalidStartError",
+				error: expect.objectContaining({ kind: "unsupported-variant" }),
+			}),
+		);
+		const noRights = "bbqnnrkr/pppppppp/8/8/8/8/PPPPPPPP/BBQNNRKR w - - 0 1";
+		expect(createGameTree({ kind: "fen", fen: noRights }).fenAt(0)).toBe(noRights);
 	});
 });
 
@@ -94,6 +112,19 @@ describe("GameTree.addMove", () => {
 	it("throws on an unknown parent", () => {
 		const tree = createGameTree({ kind: "standard" });
 		expect(() => tree.addMove(99, "e2e4")).toThrow();
+	});
+
+	it("writes promotion SAN and disambiguates by file and by rank", () => {
+		const promotion = createGameTree({ kind: "fen", fen: "8/1P4k1/8/8/8/8/8/K7 w - - 0 1" });
+		const queen = promotion.addMove(promotion.root, "b7b8q");
+		expect(promotion.node(queen)).toMatchObject({ move: "b7b8q", san: "b8=Q" });
+		expect(promotion.fenAt(queen)).toBe("1Q6/6k1/8/8/8/8/8/K7 b - - 0 1");
+
+		const knights = createGameTree({ kind: "fen", fen: "4k3/8/8/8/8/8/N3N3/4K3 w - - 0 1" });
+		expect(knights.sanAt(knights.addMove(knights.root, "a2c3"))).toBe("Nac3");
+
+		const rooks = createGameTree({ kind: "fen", fen: "k7/8/8/4R3/8/8/8/4RK2 w - - 0 1" });
+		expect(rooks.sanAt(rooks.addMove(rooks.root, "e1e2"))).toBe("R1e2");
 	});
 
 	it("stores standard castling as the king's destination and accepts both UCI forms", () => {

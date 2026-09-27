@@ -62,7 +62,7 @@ const lookupTable = (): ReadonlyMap<string, number> => {
 };
 
 export const frcNumber = (fen: Fen): number | undefined => {
-	const parsed = parseFen(fen);
+	const parsed = parseFen(fen, { chess960: true });
 	return parsed.ok ? lookupTable().get(epdOf(parsed.value.fen)) : undefined;
 };
 

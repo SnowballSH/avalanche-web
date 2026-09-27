@@ -51,6 +51,23 @@ describe("adjudicate", () => {
 		expect(adjudicate("8/8/4k3/8/8/8/2K5/5R2 w - - 0 1", [])).toBeUndefined();
 	});
 
+	it("draws same-coloured bishops but not opposite-coloured bishops or two knights", () => {
+		expect(adjudicate("k1b5/8/8/8/8/8/8/K2B4 w - - 0 1", [])).toEqual({
+			winner: "draw",
+			reason: "insufficient",
+		});
+		expect(adjudicate("k1b5/8/8/8/8/8/8/K1B5 w - - 0 1", [])).toBeUndefined();
+		expect(adjudicate("k7/8/8/8/8/8/8/K1NN4 w - - 0 1", [])).toBeUndefined();
+	});
+
+	it("still adjudicates positions with Chess960 castling rights", () => {
+		expect(
+			adjudicate("bbqnnrkr/pppppppp/8/8/8/8/PPPPPPPP/BBQNNRKR w KQkq - 0 1", []),
+		).toBeUndefined();
+		const start = "bbqnnrkr/pppppppp/8/8/8/8/PPPPPPPP/BBQNNRKR w KQkq - 0 1";
+		expect(adjudicate(start, [start, start])).toEqual({ winner: "draw", reason: "threefold" });
+	});
+
 	it("detects the fifty-move rule from the halfmove clock", () => {
 		expect(adjudicate("8/8/4k3/8/8/8/2K5/5R2 w - - 100 80", [])).toEqual({
 			winner: "draw",

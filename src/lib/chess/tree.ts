@@ -9,6 +9,7 @@ import type {
 	GameNode,
 	GameTree,
 	IllegalMoveError as IllegalMoveErrorContract,
+	ImportError,
 	NodeId,
 	San,
 	StartPosition,
@@ -26,6 +27,16 @@ export class IllegalMoveError extends Error implements IllegalMoveErrorContract 
 	}
 }
 
+export class InvalidStartError extends Error {
+	override readonly name = "InvalidStartError";
+	readonly error: ImportError;
+
+	constructor(error: ImportError) {
+		super(error.message);
+		this.error = error;
+	}
+}
+
 const POSITION_CACHE_SIZE = 64;
 
 const startFen = (start: StartPosition): Fen => {
@@ -34,7 +45,7 @@ const startFen = (start: StartPosition): Fen => {
 			return INITIAL_FEN;
 		case "fen": {
 			const parsed = parseFen(start.fen);
-			if (!parsed.ok) throw new Error(parsed.error.message);
+			if (!parsed.ok) throw new InvalidStartError(parsed.error);
 			return parsed.value.fen;
 		}
 		case "frc":

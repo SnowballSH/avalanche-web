@@ -97,6 +97,18 @@ describe("importPgn", () => {
 		expect(mainlineSans(tree)).toEqual(["e4", "Kd7"]);
 	});
 
+	it("rejects an untagged FEN start that needs Chess960 castling, and accepts it without rights", () => {
+		const rights = '[FEN "bbqnnrkr/pppppppp/8/8/8/8/PPPPPPPP/BBQNNRKR w KQkq - 0 1"]\n\n1. g3 *';
+		const error = gameError(rights);
+		expect(error).toMatchObject({ kind: "unsupported-variant", game: 0 });
+		expect(error.message).toMatch(/Chess960|FRC/);
+		const none = '[FEN "bbqnnrkr/pppppppp/8/8/8/8/PPPPPPPP/BBQNNRKR w - - 0 1"]\n\n1. g3 *';
+		expect(onlyGame(none).tree.start).toEqual({
+			kind: "fen",
+			fen: "bbqnnrkr/pppppppp/8/8/8/8/PPPPPPPP/BBQNNRKR w - - 0 1",
+		});
+	});
+
 	it("imports a Chess960 game as an FRC start with its Scharnagl number", () => {
 		const { tree } = onlyGame(
 			'[Variant "Chess960"]\n[SetUp "1"]\n[FEN "bbqnnrkr/pppppppp/8/8/8/8/PPPPPPPP/BBQNNRKR w KQkq - 0 1"]\n\n1. g3 g6 2. f3 f6 3. Rf2 Rf7 4. O-O *',
@@ -244,6 +256,20 @@ describe("exportPgn", () => {
 		expect(exportPgn(tree, { evals: false }).split("\n\n")[1]).toBe(
 			"{ Root } 1. e4 e5 $1 $14 ( 1... c5 { Sicilian } ) *\n",
 		);
+	});
+
+	it("writes promotion and disambiguated SAN produced by addMove", () => {
+		const promotion = createGameTree({ kind: "fen", fen: "8/1P4k1/8/8/8/8/8/K7 w - - 0 1" });
+		promotion.addMove(promotion.root, "b7b8q");
+		expect(exportPgn(promotion, { evals: false })).toContain("\n\n1. b8=Q *\n");
+
+		const knights = createGameTree({ kind: "fen", fen: "4k3/8/8/8/8/8/N3N3/4K3 w - - 0 1" });
+		knights.addMove(knights.root, "a2c3");
+		expect(exportPgn(knights, { evals: false })).toContain("\n\n1. Nac3 *\n");
+
+		const rooks = createGameTree({ kind: "fen", fen: "k7/8/8/4R3/8/8/8/4RK2 w - - 0 1" });
+		rooks.addMove(rooks.root, "e1e2");
+		expect(exportPgn(rooks, { evals: false })).toContain("\n\n1. R1e2 *\n");
 	});
 
 	it("writes SetUp and FEN for a FEN start and numbers the moves from it", () => {

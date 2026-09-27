@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parseFen } from "../../src/lib/chess/fen";
-import { frcFen, frcNumber, randomFrc } from "../../src/lib/chess/frc";
+import { frcBackRank, frcFen, frcNumber, randomFrc } from "../../src/lib/chess/frc";
 
 const fixture = readFileSync(new URL("../fixtures/scharnagl-960.txt", import.meta.url), "utf8")
 	.split("\n")
@@ -27,8 +27,22 @@ describe("frcFen", () => {
 		expect(frcFen(959)).toBe("rkrnnqbb/pppppppp/8/8/8/8/PPPPPPPP/RKRNNQBB w KQkq - 0 1");
 	});
 
-	it("produces positions chessops accepts as legal", () => {
-		for (let n = 0; n < 960; n += 1) expect(parseFen(frcFen(n)).ok, `position ${n}`).toBe(true);
+	it("produces positions chessops accepts as legal under Chess960 rules", () => {
+		for (let n = 0; n < 960; n += 1) {
+			expect(parseFen(frcFen(n), { chess960: true }).ok, `position ${n}`).toBe(true);
+		}
+	});
+
+	it("produces positions that standard parsing accepts only with rooks on a/h and the king on e", () => {
+		let standardShaped = 0;
+		for (let n = 0; n < 960; n += 1) {
+			const rank = frcBackRank(n);
+			const standard = rank[0] === "R" && rank[4] === "K" && rank[7] === "R";
+			if (standard) standardShaped += 1;
+			expect(parseFen(frcFen(n)).ok, `position ${n}`).toBe(standard);
+		}
+		expect(standardShaped).toBe(18);
+		expect(parseFen(frcFen(518)).ok).toBe(true);
 	});
 
 	it("rejects numbers outside 0–959 and non-integers", () => {

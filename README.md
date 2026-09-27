@@ -26,6 +26,7 @@ npm run dev
 | `npm run lint` | Biome formatting, lint and import-order check |
 | `npm run format` | apply Biome's safe fixes |
 | `npm test` | Vitest unit tests in `tests/unit` |
+| `npm run test:integration` | the real engine wasm in a Node worker thread; needs `scripts/fetch-fixture-wasm.sh` (Zig 0.16.0) once |
 | `npm run test:e2e` | Playwright against a production build, Chromium and WebKit |
 | `npm run build` | static build into `build/` |
 

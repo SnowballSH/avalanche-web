@@ -73,6 +73,62 @@ for a line without both `depth` and `score`. `parseOptionLine` keeps the
 spaces inside names such as `Move Overhead` and maps a `string` default of
 `<empty>` to the empty string, which is what that UCI marker means.
 
+## Engine runtime
+
+`src/lib/engine/session.ts` implements `UciSession` as `UciSessionRuntime`
+over a `LineTransport` (one `send(command)` method); the host feeds the
+engine's output back through `receive(line)`, so the unit tests drive it with
+a scripted fake and never a worker. The worker executes commands strictly in
+order and a search blocks it until `bestmove`, so output arrives in command
+order: the session keeps a FIFO of searches whose `go` has been sent and
+whose `bestmove` has not arrived, attributes `info` lines to the head of that
+queue, and pops it on `bestmove`. That is what gives every parsed line its
+`searchId`. `search()` sends `stop` for the running search before its own
+`go`; `position`, `newGame` and `setOption` also mark the running search
+superseded, which closes its `info` stream and drops any further lines while
+still resolving its `result`, because a queued state change would otherwise
+wait behind an infinite search and its late lines would describe the old
+position. Every state-changing command is followed by `isready`, and the
+returned promise resolves on the matching `readyok`. `abort(reason)` rejects
+every pending search, handshake and `isready` and refuses further commands.
+
+`src/lib/engine/host.ts` implements `EngineHost` as `WorkerEngineHost`,
+parameterised by an `EngineConnectionFactory` that turns a pin into a
+`{send, terminate}` connection and receives the line and failure callbacks.
+`createBrowserEngineHost()` binds the factory that starts
+`src/lib/engine/worker.ts` as a module Worker and drives it with the vendored
+`AvalancheClient`; the integration test binds one that starts the vendored
+Node worker-thread client on a local wasm file. The host parses every line
+with `parseEngineNotice`, so a Hash-failure notice updates `effectiveHashMb`
+while the `setOption("Hash")` round trip is still in flight, and `start`
+resolves with the corrected value already recorded. A connection failure
+after `ready` aborts the session with `crashed`, terminates the worker and
+emits `EngineCrash`; the pin is kept so `restart(options)` can reuse it.
+
+`src/lib/engine/pin-loader.ts` is the loader `worker.ts` gives `serveEngine`:
+it opens the `avalanche-pins-v1` cache and matches the key it was handed.
+`serveEngine` and `AvalancheClient` carry a worker-side failure across the
+thread boundary as a message string, so `PinUnavailableError` uses a fixed
+message prefix and `PinUnavailableError.fromMessage` rebuilds the typed error
+on the main thread, where `start` rejects with it.
+
+`src/lib/engine/memory.ts` derives the Hash choices: powers of two from 16 MB
+up to `hashCapMb(navigator.deviceMemory)`, which is
+`min(1024, deviceMemory * 128)` rounded down to a power of two, or 256 MB
+when `deviceMemory` is absent.
+
+`src/lib/engine/scheduler.ts` keeps one lease per owner in a map; a lease
+transitions in place and notifies its listeners, and `release` of a lease
+that is no longer the held one is a no-op.
+
+The integration test, `npm run test:integration`, runs
+`tests/integration/engine.node.test.ts` under `vitest.integration.config.ts`
+against the real `master-8c66796` wasm in a Node worker thread. The fixture
+comes from `scripts/fetch-fixture-wasm.sh`, which builds the commit with Zig
+0.16.0 from a scratch worktree of `AVALANCHE_REPO` (or a shallow fetch from
+GitHub) into the git-ignored `.cache/fixtures/`, and reuses the file once it
+exists. CI does not run it, since the runner has no Zig.
+
 ## Planned layout
 
 ```

@@ -157,6 +157,46 @@ describe("UciSessionRuntime search", () => {
 	});
 });
 
+describe("UciSessionRuntime info stream", () => {
+	it("is single-consumer: a second iterator throws", async () => {
+		const { engine, session } = await started();
+		const handle = session.search({ depth: 2 });
+		const iterator = handle.info[Symbol.asyncIterator]();
+		expect(() => handle.info[Symbol.asyncIterator]()).toThrow(/consumer/);
+		engine.emit(INFO_DEPTH_1, "bestmove e2e4");
+		expect((await iterator.next()).value?.depth).toBe(1);
+		expect((await iterator.next()).done).toBe(true);
+	});
+
+	it("closes on return() and drops later lines", async () => {
+		const { engine, session } = await started();
+		const handle = session.search({ depth: 2 });
+		const iterator = handle.info[Symbol.asyncIterator]();
+		engine.emit(INFO_DEPTH_1);
+		expect((await iterator.next()).value?.depth).toBe(1);
+		await iterator.return?.();
+		engine.emit(INFO_DEPTH_2);
+		expect((await iterator.next()).done).toBe(true);
+		engine.emit("bestmove e2e4");
+		await expect(handle.result).resolves.toEqual({ searchId: 1, move: "e2e4" });
+	});
+
+	it("lets the consumer break out and still resolves the result", async () => {
+		const { engine, session } = await started();
+		const handle = session.search({ depth: 2 });
+		engine.emit(INFO_DEPTH_1, INFO_DEPTH_2);
+		let seen = 0;
+		for await (const info of handle.info) {
+			seen++;
+			expect(info.depth).toBe(1);
+			break;
+		}
+		expect(seen).toBe(1);
+		engine.emit("bestmove e2e4");
+		await expect(handle.result).resolves.toEqual({ searchId: 1, move: "e2e4" });
+	});
+});
+
 describe("UciSessionRuntime position changes", () => {
 	it("stops the running search before sending the new position", async () => {
 		const { engine, session } = await started();

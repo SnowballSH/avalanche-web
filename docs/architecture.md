@@ -91,6 +91,9 @@ wait behind an infinite search and its late lines would describe the old
 position. Every state-changing command is followed by `isready`, and the
 returned promise resolves on the matching `readyok`. `abort(reason)` rejects
 every pending search, handshake and `isready` and refuses further commands.
+A handle's `info` stream has a single consumer: a second
+`[Symbol.asyncIterator]()` throws, and breaking out of the loop (`return()`)
+closes the stream so later lines are dropped rather than buffered.
 
 `src/lib/engine/host.ts` implements `EngineHost` as `WorkerEngineHost`,
 parameterised by an `EngineConnectionFactory` that turns a pin into a
@@ -104,6 +107,15 @@ while the `setOption("Hash")` round trip is still in flight, and `start`
 resolves with the corrected value already recorded. A connection failure
 after `ready` aborts the session with `crashed`, terminates the worker and
 emits `EngineCrash`; the pin is kept so `restart(options)` can reuse it.
+`start`, `restart` and `terminate` may overlap: each `start` and `terminate`
+bumps a generation counter, and a `start` that finds the counter moved after
+any of its awaits retires the worker it opened and rejects with
+`EngineStartSupersededError`, so two overlapping restarts leave exactly one
+worker. Line and failure callbacks are ignored unless they come from the
+engine the host currently holds, since a terminated worker's queued messages
+can still be delivered. A failure after the worker opened (a `Threads`
+value above the pin's maximum, checked before `Hash` is sent, or a crash
+mid-handshake) retires that worker, clears the host and rethrows.
 
 `src/lib/engine/pin-loader.ts` is the loader `worker.ts` gives `serveEngine`:
 it opens the `avalanche-pins-v1` cache and matches the key it was handed.

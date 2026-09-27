@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { WorkerEngineHost } from "../../src/lib/engine/host";
+import { EngineStartSupersededError, WorkerEngineHost } from "../../src/lib/engine/host";
 import { PinUnavailableError } from "../../src/lib/engine/pin-loader";
 import type { EngineCrash, EngineNotice } from "../../src/lib/engine/types";
 import type { PinEntry } from "../../src/lib/pins/types";
@@ -176,5 +176,123 @@ describe("WorkerEngineHost notices", () => {
 		unsubscribe();
 		fake.engines[0]?.emit("info string error: again");
 		expect(notices).toHaveLength(1);
+	});
+});
+
+describe("WorkerEngineHost overlapping lifecycle calls", () => {
+	it("keeps exactly one engine when two restarts overlap", async () => {
+		const fake = fakeConnections({ beforeConnect: () => new Promise((r) => setTimeout(r, 0)) });
+		const host = new WorkerEngineHost(fake.connect);
+		await host.start(pinA, { hashMb: 64 });
+		const first = host.restart({ hashMb: 512 });
+		const second = host.restart({ hashMb: 1024 });
+		await expect(first).rejects.toBeInstanceOf(EngineStartSupersededError);
+		const session = await second;
+		expect(fake.engines).toHaveLength(3);
+		expect(fake.engines.filter((engine) => !engine.terminated)).toHaveLength(1);
+		expect(fake.engines[2]?.terminated).toBe(false);
+		expect(fake.engines[2]?.commandsMatching("setoption")).toEqual([
+			"setoption name Hash value 1024",
+		]);
+		expect(session.capabilities).not.toBeNull();
+		expect(host.effectiveHashMb).toBe(1024);
+	});
+
+	it("leaves no engine when terminate() lands during start", async () => {
+		const fake = fakeConnections({ beforeConnect: () => new Promise((r) => setTimeout(r, 0)) });
+		const host = new WorkerEngineHost(fake.connect);
+		const starting = host.start(pinA, { hashMb: 64 });
+		await host.terminate();
+		await expect(starting).rejects.toBeInstanceOf(EngineStartSupersededError);
+		expect(fake.engines).toHaveLength(1);
+		expect(fake.engines[0]?.terminated).toBe(true);
+		expect(host.pin).toBeNull();
+		expect(host.effectiveHashMb).toBeNull();
+	});
+
+	it("leaves no engine when terminate() lands during the handshake", async () => {
+		const fake = fakeConnections({ answersUci: false });
+		const host = new WorkerEngineHost(fake.connect);
+		const starting = host.start(pinA, { hashMb: 64 });
+		await new Promise((r) => setTimeout(r, 0));
+		await host.terminate();
+		await expect(starting).rejects.toBeInstanceOf(EngineStartSupersededError);
+		expect(fake.engines.every((engine) => engine.terminated)).toBe(true);
+	});
+});
+
+describe("WorkerEngineHost superseded connect failure", () => {
+	it("reports the superseded start and keeps the newer start's pin", async () => {
+		const fake = fakeConnections();
+		let calls = 0;
+		const host = new WorkerEngineHost((pin, handlers) => {
+			calls++;
+			return calls === 1
+				? new Promise((_, reject) => setTimeout(() => reject(new Error("slow load failed")), 0))
+				: fake.connect(pin, handlers);
+		});
+		const first = host.start(pinA, { hashMb: 64 });
+		const second = host.start(pinB, { hashMb: 64 });
+		await expect(first).rejects.toBeInstanceOf(EngineStartSupersededError);
+		await second;
+		expect(host.pin).toBe(pinB);
+		expect(host.effectiveHashMb).toBe(64);
+	});
+});
+
+describe("WorkerEngineHost lines from a retired engine", () => {
+	it("ignores a Hash-failure line from a terminated engine", async () => {
+		const fake = fakeConnections();
+		const host = new WorkerEngineHost(fake.connect);
+		const notices: EngineNotice[] = [];
+		host.onNotice((notice) => notices.push(notice));
+		await host.start(pinA, { hashMb: 64 });
+		await host.restart({ hashMb: 128 });
+		fake.engines[0]?.emit(HASH_FAILED, "info string error: late");
+		expect(host.effectiveHashMb).toBe(128);
+		expect(notices).toEqual([]);
+	});
+
+	it("ignores lines and failures from a crashed engine after restart", async () => {
+		const fake = fakeConnections();
+		const host = new WorkerEngineHost(fake.connect);
+		const crashes: EngineCrash[] = [];
+		host.onCrash((crash) => crashes.push(crash));
+		await host.start(pinA, { hashMb: 64 });
+		fake.handlers[0]?.onFailure(new Error("trap"));
+		await host.restart({ hashMb: 64 });
+		fake.engines[0]?.emit(HASH_FAILED);
+		fake.handlers[0]?.onFailure(new Error("trap again"));
+		expect(crashes).toHaveLength(1);
+		expect(host.effectiveHashMb).toBe(64);
+		expect(host.pin).toBe(pinA);
+	});
+});
+
+describe("WorkerEngineHost failures after the worker opened", () => {
+	it("terminates the worker when Threads exceeds the pin's maximum, before sending Hash", async () => {
+		const fake = fakeConnections();
+		const host = new WorkerEngineHost(fake.connect);
+		await expect(host.start(pinA, { hashMb: 64, threads: 2 })).rejects.toThrow(RangeError);
+		expect(fake.engines[0]?.terminated).toBe(true);
+		expect(fake.engines[0]?.commandsMatching("setoption")).toEqual([]);
+		expect(host.pin).toBeNull();
+		expect(host.effectiveHashMb).toBeNull();
+		await expect(host.restart({ hashMb: 64 })).rejects.toThrow(/no pin/i);
+	});
+
+	it("rejects start and reports the crash when the worker dies mid-handshake", async () => {
+		const fake = fakeConnections({ answersUci: false });
+		const host = new WorkerEngineHost(fake.connect);
+		const crashes: EngineCrash[] = [];
+		host.onCrash((crash) => crashes.push(crash));
+		const starting = host.start(pinA, { hashMb: 64 });
+		await new Promise((r) => setTimeout(r, 0));
+		fake.handlers[0]?.onFailure(new Error("trap during uci"));
+		await expect(starting).rejects.toThrow(/crashed/);
+		expect(crashes).toEqual([{ pin: pinA, error: new Error("trap during uci"), searchId: null }]);
+		expect(fake.engines[0]?.terminated).toBe(true);
+		expect(host.pin).toBe(pinA);
+		expect(host.effectiveHashMb).toBeNull();
 	});
 });

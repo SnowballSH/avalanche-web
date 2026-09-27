@@ -1,6 +1,5 @@
 /// <reference types="node" />
 import { existsSync } from "node:fs";
-import { pathToFileURL } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { type EngineConnectionFactory, WorkerEngineHost } from "../../src/lib/engine/host";
 import type { EngineNotice, SearchInfo, UciSession } from "../../src/lib/engine/types";
@@ -22,9 +21,14 @@ const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 const UCI_MOVE = /^[a-h][1-8][a-h][1-8][qrbn]?$/;
 
+const rawLines: string[] = [];
+
 const connectNodeWorker: EngineConnectionFactory = async (_pin, handlers) => {
-	const client = await startNodeClient(pathToFileURL(FIXTURE_PATH.pathname), {
-		onLine: handlers.onLine,
+	const client = await startNodeClient(FIXTURE_PATH, {
+		onLine: (line) => {
+			rawLines.push(line);
+			handlers.onLine(line);
+		},
 		onError: handlers.onFailure,
 	});
 	return {
@@ -96,15 +100,42 @@ describe("EngineHost against the real 8c66796 wasm", () => {
 		expect(result.move).toMatch(UCI_MOVE);
 	});
 
-	it("drops the superseded search when the position changes", async () => {
+	it("drops the superseded search's lines once the position changes", async () => {
 		const stale = session.search({ infinite: true });
-		await firstInfo(stale.info);
+		const staleInfos: SearchInfo[] = [];
+		const firstStale = Promise.withResolvers<void>();
+		let staleStreamEnded = false;
+		const staleStream = (async () => {
+			for await (const info of stale.info) {
+				staleInfos.push(info);
+				firstStale.resolve();
+			}
+			staleStreamEnded = true;
+		})();
+		await firstStale.promise;
+
+		const rawBeforeChange = rawLines.length;
 		await session.position(START_FEN, ["d2d4", "d7d5"]);
+		await staleStream;
+		const deliveredBeforeChange = staleInfos.length;
 		const fresh = session.search({ depth: 6 });
+
 		const staleResult = await stale.result;
 		const freshInfos = await collect(fresh.info);
 		const freshResult = await fresh.result;
+
+		const rawAfterChange = rawLines.slice(rawBeforeChange);
+		const staleTail = rawAfterChange.slice(
+			0,
+			rawAfterChange.findIndex((l) => l.startsWith("bestmove")),
+		);
+		expect(staleTail.some((line) => line.startsWith("info depth"))).toBe(true);
+		expect(staleStreamEnded).toBe(true);
+		expect(staleInfos).toHaveLength(deliveredBeforeChange);
+		expect(staleInfos.every((info) => info.searchId === stale.searchId)).toBe(true);
 		expect(staleResult.searchId).toBe(stale.searchId);
+		expect(staleResult.move).toMatch(UCI_MOVE);
+		expect(freshInfos.length).toBeGreaterThan(0);
 		expect(freshInfos.every((info) => info.searchId === fresh.searchId)).toBe(true);
 		expect(freshInfos.at(-1)?.depth).toBe(6);
 		expect(freshResult.searchId).toBe(fresh.searchId);

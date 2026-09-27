@@ -37,6 +37,7 @@ class AsyncQueue<T> implements AsyncIterable<T> {
 	readonly #buffered: T[] = [];
 	#waiting: ((result: IteratorResult<T>) => void) | null = null;
 	#closed = false;
+	#consumed = false;
 
 	push(value: T): void {
 		if (this.#closed) return;
@@ -66,8 +67,16 @@ class AsyncQueue<T> implements AsyncIterable<T> {
 		});
 	}
 
+	#return(): Promise<IteratorResult<T>> {
+		this.#buffered.length = 0;
+		this.close();
+		return Promise.resolve({ value: undefined, done: true });
+	}
+
 	[Symbol.asyncIterator](): AsyncIterator<T> {
-		return { next: () => this.#next() };
+		if (this.#consumed) throw new Error("The info stream has a single consumer");
+		this.#consumed = true;
+		return { next: () => this.#next(), return: () => this.#return() };
 	}
 }
 

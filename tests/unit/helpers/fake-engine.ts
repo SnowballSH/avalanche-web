@@ -18,6 +18,11 @@ export const FAKE_OPTION_LINES: readonly string[] = [
 
 export interface FakeEngineOptions {
 	readonly onSetOption?: (name: string, value: string | undefined) => readonly string[];
+	readonly answersUci?: boolean;
+}
+
+export interface FakeConnectionOptions extends FakeEngineOptions {
+	readonly beforeConnect?: () => Promise<void>;
 }
 
 export class FakeEngine implements LineTransport, EngineConnection {
@@ -43,6 +48,7 @@ export class FakeEngine implements LineTransport, EngineConnection {
 		const [verb, ...rest] = command.split(" ");
 		switch (verb) {
 			case "uci":
+				if (this.#options.answersUci === false) return;
 				this.emit("id name Fake", "", ...FAKE_OPTION_LINES, "uciok");
 				return;
 			case "isready":
@@ -76,18 +82,19 @@ export interface FakeConnections {
 	readonly connect: EngineConnectionFactory;
 }
 
-export function fakeConnections(options: FakeEngineOptions = {}): FakeConnections {
+export function fakeConnections(options: FakeConnectionOptions = {}): FakeConnections {
 	const engines: FakeEngine[] = [];
 	const handlers: EngineConnectionHandlers[] = [];
 	return {
 		engines,
 		handlers,
-		connect: (_pin, connectionHandlers) => {
+		connect: async (_pin, connectionHandlers) => {
+			await options.beforeConnect?.();
 			const engine = new FakeEngine(options);
 			engine.onLine(connectionHandlers.onLine);
 			engines.push(engine);
 			handlers.push(connectionHandlers);
-			return Promise.resolve(engine);
+			return engine;
 		},
 	};
 }

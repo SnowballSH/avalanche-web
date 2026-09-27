@@ -28,6 +28,16 @@ export type EngineConnectionFactory = (
 	handlers: EngineConnectionHandlers,
 ) => Promise<EngineConnection>;
 
+export class EngineStartSupersededError extends Error {
+	override readonly name = "EngineStartSupersededError";
+	readonly pin: PinEntry;
+
+	constructor(pin: PinEntry) {
+		super(`Starting ${pin.id} was superseded by a later start or terminate`);
+		this.pin = pin;
+	}
+}
+
 interface RunningEngine {
 	readonly pin: PinEntry;
 	readonly connection: EngineConnection;
@@ -54,6 +64,7 @@ export class WorkerEngineHost implements EngineHost {
 	readonly #crashListeners = new Listeners<EngineCrash>();
 	readonly #noticeListeners = new Listeners<EngineNotice>();
 	#running: RunningEngine | null = null;
+	#generation = 0;
 	#pin: PinEntry | null = null;
 	#effectiveHashMb: number | null = null;
 
@@ -70,16 +81,35 @@ export class WorkerEngineHost implements EngineHost {
 	}
 
 	async start(pin: PinEntry, options: EngineStartOptions): Promise<UciSession> {
-		await this.terminate();
+		this.#shutdown();
+		const generation = this.#generation;
 		this.#pin = pin;
-		const running = await this.#open(pin);
+		let running: RunningEngine;
+		try {
+			running = await this.#open(pin);
+		} catch (error) {
+			if (generation !== this.#generation) throw new EngineStartSupersededError(pin);
+			this.#pin = null;
+			throw (error instanceof Error && PinUnavailableError.fromMessage(error.message)) || error;
+		}
+		if (generation !== this.#generation) {
+			this.#retire(running, "terminated");
+			throw new EngineStartSupersededError(pin);
+		}
 		this.#running = running;
-		const { session } = running;
-		await session.handshake();
-		this.#effectiveHashMb = options.hashMb;
-		await session.setOption("Hash", options.hashMb);
-		if (options.threads !== undefined) await session.setOption("Threads", options.threads);
-		return session;
+		try {
+			await this.#configure(running.session, options);
+			return running.session;
+		} catch (error) {
+			if (generation !== this.#generation) throw new EngineStartSupersededError(pin);
+			if (this.#running === running) {
+				this.#running = null;
+				this.#pin = null;
+				this.#effectiveHashMb = null;
+				this.#retire(running, "terminated");
+			}
+			throw error;
+		}
 	}
 
 	restart(options: EngineStartOptions): Promise<UciSession> {
@@ -89,14 +119,7 @@ export class WorkerEngineHost implements EngineHost {
 	}
 
 	terminate(): Promise<void> {
-		const running = this.#running;
-		this.#running = null;
-		this.#pin = null;
-		this.#effectiveHashMb = null;
-		if (running) {
-			running.session.abort("terminated");
-			running.connection.terminate();
-		}
+		this.#shutdown();
 		return Promise.resolve();
 	}
 
@@ -108,24 +131,45 @@ export class WorkerEngineHost implements EngineHost {
 		return this.#noticeListeners.add(listener);
 	}
 
+	#shutdown(): void {
+		this.#generation++;
+		const running = this.#running;
+		this.#running = null;
+		this.#pin = null;
+		this.#effectiveHashMb = null;
+		if (running) this.#retire(running, "terminated");
+	}
+
+	#retire(running: RunningEngine, reason: "terminated" | "crashed"): void {
+		running.session.abort(reason);
+		running.connection.terminate();
+	}
+
+	async #configure(session: UciSessionRuntime, options: EngineStartOptions): Promise<void> {
+		const capabilities = await session.handshake();
+		if (options.threads !== undefined && options.threads > capabilities.threadsMax) {
+			throw new RangeError(
+				`Threads ${String(options.threads)} exceeds the pin's maximum of ${String(capabilities.threadsMax)}`,
+			);
+		}
+		this.#effectiveHashMb = options.hashMb;
+		await session.setOption("Hash", options.hashMb);
+		if (options.threads !== undefined) await session.setOption("Threads", options.threads);
+	}
+
 	async #open(pin: PinEntry): Promise<RunningEngine> {
 		let running: RunningEngine | null = null;
 		const handlers: EngineConnectionHandlers = {
 			onLine: (line) => {
-				running?.session.receive(line);
+				if (!running || this.#running !== running) return;
+				running.session.receive(line);
 				this.#receiveNotice(line);
 			},
 			onFailure: (error) => {
-				if (running) this.#crash(running, error);
+				if (running && this.#running === running) this.#crash(running, error);
 			},
 		};
-		let connection: EngineConnection;
-		try {
-			connection = await this.#connect(pin, handlers);
-		} catch (error) {
-			this.#pin = null;
-			throw (error instanceof Error && PinUnavailableError.fromMessage(error.message)) || error;
-		}
+		const connection = await this.#connect(pin, handlers);
 		running = { pin, connection, session: new UciSessionRuntime(connection) };
 		return running;
 	}
@@ -138,12 +182,10 @@ export class WorkerEngineHost implements EngineHost {
 	}
 
 	#crash(running: RunningEngine, error: Error): void {
-		if (this.#running !== running) return;
 		const searchId = running.session.runningSearchId;
 		this.#running = null;
 		this.#effectiveHashMb = null;
-		running.session.abort("crashed");
-		running.connection.terminate();
+		this.#retire(running, "crashed");
 		this.#crashListeners.emit({ pin: running.pin, error, searchId });
 	}
 }

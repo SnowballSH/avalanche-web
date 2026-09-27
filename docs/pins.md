@@ -77,10 +77,10 @@ The 8c66796 build is byte-stable: two runs on the same machine, the second
 with an empty Zig global cache (`ZIG_GLOBAL_CACHE_DIR` pointed at a fresh
 directory), produced the same 50 897 196-byte wasm with sha256
 `0ce54b47cc8fe350f6b19053da242af4e8cec0a7457b607b5ec600ba3855abc9`, and
-identical `.zst` and `.gz` siblings. CI on Ubuntu builds the same commit; if a
-platform ever produced a different digest, the served `sha256` would still be
-correct for the bytes actually served, since it is measured from the output
-rather than declared.
+identical `.zst` and `.gz` siblings. The first CI build on Ubuntu (run
+36346609456) reported the same digest and size. If a platform ever produced a
+different digest, the served `sha256` would still be correct for the bytes
+actually served, since it is measured from the output rather than declared.
 
 ## CI
 

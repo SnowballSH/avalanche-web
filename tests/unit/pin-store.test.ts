@@ -41,12 +41,22 @@ interface StoredEntry {
 class FakeCache {
 	readonly entries = new Map<string, StoredEntry>();
 	putFailure: Error | undefined;
+	matchCalls = 0;
+
+	seed(key: string, bytes: Uint8Array, contentType = "application/wasm"): void {
+		const headers = new Headers({
+			"Content-Type": contentType,
+			"Content-Length": String(bytes.length),
+		});
+		this.entries.set(key, { headers, bytes });
+	}
 
 	async keys(): Promise<Request[]> {
 		return [...this.entries.keys()].map((key) => new Request(`https://example.test${key}`));
 	}
 
 	async match(request: RequestInfo | URL): Promise<Response | undefined> {
+		this.matchCalls += 1;
 		const entry = this.entries.get(keyOf(request));
 		if (!entry) return undefined;
 		return new Response(entry.bytes.slice(), { headers: entry.headers });
@@ -113,12 +123,17 @@ interface StreamPlan {
 	readonly chunkSize?: number;
 	readonly errorAfter?: number;
 	readonly status?: number;
+	readonly contentType?: string;
+	readonly onCancel?: () => void;
 }
 
 function streamedResponse(plan: StreamPlan): Response {
 	const chunkSize = plan.chunkSize ?? 100;
 	let offset = 0;
 	const body = new ReadableStream<Uint8Array>({
+		cancel() {
+			plan.onCancel?.();
+		},
 		pull(controller) {
 			if (plan.errorAfter !== undefined && offset >= plan.errorAfter) {
 				controller.error(new TypeError("network connection was lost"));
@@ -133,7 +148,41 @@ function streamedResponse(plan: StreamPlan): Response {
 			offset = end;
 		},
 	});
-	return new Response(body, { status: plan.status ?? 200 });
+	return new Response(body, {
+		status: plan.status ?? 200,
+		headers: { "Content-Type": plan.contentType ?? "application/wasm" },
+	});
+}
+
+interface GatedStream {
+	readonly response: Response;
+	readonly release: () => void;
+	readonly cancelled: () => boolean;
+}
+
+function gatedStream(bytes: Uint8Array, gateAt: number): GatedStream {
+	let release: () => void = () => {};
+	const gate = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	let offset = 0;
+	let cancelled = false;
+	const body = new ReadableStream<Uint8Array>({
+		cancel() {
+			cancelled = true;
+		},
+		async pull(controller) {
+			if (offset === gateAt) await gate;
+			if (offset >= bytes.length) {
+				controller.close();
+				return;
+			}
+			controller.enqueue(bytes.slice(offset, offset + gateAt));
+			offset += gateAt;
+		},
+	});
+	const response = new Response(body, { headers: { "Content-Type": "application/wasm" } });
+	return { response, release: () => release(), cancelled: () => cancelled };
 }
 
 function fakeFetch(plans: Record<string, () => Response>): {
@@ -197,32 +246,102 @@ describe("PinStore.download", () => {
 	});
 
 	it("shows downloading with the current fraction while the stream is open", async () => {
-		let release: () => void = () => {};
-		const gate = new Promise<void>((resolve) => {
-			release = resolve;
+		const stream = gatedStream(firstBytes, 500);
+		const { store } = setup({ [wasmUrl(firstPin)]: () => stream.response });
+		let seen: (fraction: number) => void = () => {};
+		const firstFraction = new Promise<number>((resolve) => {
+			seen = resolve;
 		});
-		let offset = 0;
-		const body = new ReadableStream<Uint8Array>({
-			async pull(controller) {
-				if (offset === 500) await gate;
-				if (offset >= firstBytes.length) {
-					controller.close();
-					return;
-				}
-				controller.enqueue(firstBytes.slice(offset, offset + 500));
-				offset += 500;
-			},
-		});
-		const { store } = setup({ [wasmUrl(firstPin)]: () => new Response(body) });
-		const seen = new Promise<number>((resolve) => {
-			void store.download(firstPin, (fraction) => resolve(fraction));
-		});
-		expect(await seen).toBe(0.5);
+		const download = store.download(firstPin, (fraction) => seen(fraction));
+		expect(await firstFraction).toBe(0.5);
 		expect(stateOf(await store.list([firstPin]), firstPin.id)).toEqual({
 			kind: "downloading",
 			fraction: 0.5,
 		});
-		release();
+		stream.release();
+		await download;
+		expect(stateOf(await store.list([firstPin]), firstPin.id)).toEqual({ kind: "ready" });
+	});
+
+	it("rejects a 200 whose Content-Type is not application/wasm as network, without a corrupt mark", async () => {
+		const { store, cache } = setup({
+			[wasmUrl(firstPin)]: () =>
+				new Response("<!doctype html><title>Avalanche</title>", {
+					status: 200,
+					headers: { "Content-Type": "text/html; charset=utf-8" },
+				}),
+		});
+		const error = await failure(store.download(firstPin));
+		expect(error.code).toBe("network");
+		expect(error.message).toMatch(/text\/html/);
+		expect(cache.entries.size).toBe(0);
+		expect(stateOf(await store.list([firstPin]), firstPin.id)).toEqual({ kind: "absent" });
+	});
+
+	it("drops a transfer deleted mid-download: reader cancelled, nothing cached, download rejects missing", async () => {
+		const stream = gatedStream(firstBytes, 500);
+		const { store, cache } = setup({ [wasmUrl(firstPin)]: () => stream.response });
+		let seen: (fraction: number) => void = () => {};
+		const firstFraction = new Promise<number>((resolve) => {
+			seen = resolve;
+		});
+		const download = store.download(firstPin, (fraction) => seen(fraction));
+		expect(await firstFraction).toBe(0.5);
+
+		await store.delete(firstPin.id);
+		expect(stateOf(await store.list([firstPin]), firstPin.id)).toEqual({ kind: "absent" });
+		stream.release();
+		expect((await failure(download)).code).toBe("missing");
+		expect(stream.cancelled()).toBe(true);
+		expect(cache.entries.size).toBe(0);
+		expect(stateOf(await store.list([firstPin]), firstPin.id)).toEqual({ kind: "absent" });
+	});
+
+	it("isolates a throwing progress listener from the transfer and its sharers", async () => {
+		const { store } = setup({
+			[wasmUrl(firstPin)]: () => streamedResponse({ bytes: firstBytes, chunkSize: 250 }),
+		});
+		const healthy: number[] = [];
+		await Promise.all([
+			store.download(firstPin, () => {
+				throw new Error("listener bug");
+			}),
+			store.download(firstPin, (fraction) => healthy.push(fraction)),
+		]);
+		expect(healthy).toEqual([0.25, 0.5, 0.75, 1]);
+		expect(stateOf(await store.list([firstPin]), firstPin.id)).toEqual({ kind: "ready" });
+	});
+
+	it("cancels the reader when the body overruns and when the cache write fails", async () => {
+		let cancels = 0;
+		const longer = new Uint8Array(firstBytes.length + 250);
+		longer.set(firstBytes);
+		const { store, cache } = setup({
+			[wasmUrl(firstPin)]: () => streamedResponse({ bytes: longer, onCancel: () => cancels++ }),
+			[wasmUrl(secondPin)]: () =>
+				streamedResponse({ bytes: secondBytes, chunkSize: 1000, onCancel: () => cancels++ }),
+		});
+		expect((await failure(store.download(firstPin))).code).toBe("corrupt");
+		expect(cancels).toBe(1);
+		cache.putFailure = new DOMException("full", "QuotaExceededError");
+		expect((await failure(store.download(secondPin))).code).toBe("quota");
+		expect(cancels).toBe(1);
+	});
+
+	it("short-circuits to ready when the pin is already cached", async () => {
+		let attempts = 0;
+		const { store } = setup({
+			[wasmUrl(firstPin)]: () => {
+				attempts += 1;
+				return streamedResponse({ bytes: firstBytes });
+			},
+		});
+		await store.download(firstPin);
+		const fractions: number[] = [];
+		await store.download(firstPin, (fraction) => fractions.push(fraction));
+		expect(attempts).toBe(1);
+		expect(fractions).toEqual([1]);
+		expect(stateOf(await store.list([firstPin]), firstPin.id)).toEqual({ kind: "ready" });
 	});
 
 	it("caches a Response carrying Content-Type application/wasm that get() returns", async () => {
@@ -292,7 +411,8 @@ describe("PinStore.download", () => {
 	it("maps an HTTP failure and a missing body to a network error", async () => {
 		const { store } = setup({
 			[wasmUrl(firstPin)]: () => new Response(null, { status: 404 }),
-			[wasmUrl(secondPin)]: () => new Response(null, { status: 200 }),
+			[wasmUrl(secondPin)]: () =>
+				new Response(null, { status: 200, headers: { "Content-Type": "application/wasm" } }),
 		});
 		expect((await failure(store.download(firstPin))).code).toBe("network");
 		expect((await failure(store.download(secondPin))).code).toBe("network");
@@ -387,6 +507,26 @@ describe("PinStore.list", () => {
 		]);
 	});
 
+	it("reads sizes only for stale entries", async () => {
+		const { store, cache } = setup({
+			[wasmUrl(firstPin)]: () => streamedResponse({ bytes: firstBytes }),
+			[wasmUrl(secondPin)]: () => streamedResponse({ bytes: secondBytes }),
+		});
+		await store.download(firstPin);
+		await store.download(secondPin);
+		cache.matchCalls = 0;
+		await store.list([firstPin, secondPin]);
+		expect(cache.matchCalls).toBe(0);
+		await store.list([firstPin]);
+		expect(cache.matchCalls).toBe(1);
+	});
+
+	it("ignores cache entries that are not pin keys", async () => {
+		const { store, cache } = setup();
+		cache.seed("/engines/junk.wasm", wasmBytes(10, 3));
+		expect(await store.list([firstPin])).toEqual([{ pin: firstPin, state: { kind: "absent" } }]);
+	});
+
 	it("keeps catalogue order and reports absent pins", async () => {
 		const { store } = setup();
 		expect(await store.list([secondPin, firstPin])).toEqual([
@@ -431,6 +571,15 @@ describe("PinStore.delete and usage", () => {
 		await store.delete(secondPin.id);
 		await store.delete(firstPin.id);
 		expect(await store.list([firstPin])).toEqual([{ pin: firstPin, state: { kind: "absent" } }]);
+	});
+
+	it("counts bytes of entries that are not pin keys so nothing is orphaned invisibly", async () => {
+		const { store, cache } = setup({
+			[wasmUrl(firstPin)]: () => streamedResponse({ bytes: firstBytes }),
+		});
+		await store.download(firstPin);
+		cache.seed("/engines/junk.wasm", wasmBytes(10, 3));
+		expect((await store.usage()).usedBytes).toBe(firstPin.bytes + 10);
 	});
 
 	it("reports a null quota when the estimate carries none", async () => {

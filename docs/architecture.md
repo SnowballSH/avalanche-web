@@ -257,15 +257,26 @@ line: `play` → `chess` → `engine` → `pins`, with no cycles.
   `usage()` reports `StorageUsage`, and `requestPersistence()` resolves with
   whether `navigator.storage.persist()` was granted.
 - `src/lib/pins/store.ts` implements it. `get` never downloads: a miss rejects
-  with `missing`, and callers run `download` first. The transfer is fetched
-  with `cache: "no-store"` so the HTTP cache holds no second copy of a 51 MB
-  file, and lands in one preallocated buffer of `PinEntry.bytes`; a body that
-  overruns or falls short of that length is `corrupt` like a digest mismatch.
-  Concurrent `download` calls for the same key share one transfer. The
-  `downloading` and `corrupt` marks live in the store instance, so another
-  tab sees only `ready` or `absent`. `usedBytes` is the sum of the cached
-  pins' `Content-Length` headers (written at `put` time), and `quotaBytes`
-  comes from `StorageManager.estimate()`, `null` when it gives none.
+  with `missing`, and callers run `download` first. `download` on a pin the
+  cache already holds reports `1` and resolves without a fetch. The transfer
+  is fetched with `cache: "no-store"` so the HTTP cache holds no second copy
+  of a 51 MB file. A `200` whose `Content-Type` is not `application/wasm` is
+  a `network` failure, not `corrupt`: the container's `try_files` answers a
+  pin missing from the image with the HTML shell. The body lands in one
+  preallocated buffer of `PinEntry.bytes`; one that overruns or falls short
+  of that length is `corrupt` like a digest mismatch, and the reader is
+  cancelled on every failure path. Concurrent `download` calls for the same
+  key share one transfer; a progress listener that throws is skipped and
+  never fails the transfer. `delete` cancels an in-flight transfer of that
+  id, which then rejects with `missing` instead of landing the pin after the
+  user removed it. The `downloading` and `corrupt` marks live in the store
+  instance, so another tab sees only `ready` or `absent`. `usedBytes` sums
+  every entry in the cache (from the `Content-Length` header written at
+  `put` time, else the blob size), including any entry whose key is not a
+  pin key, so nothing is orphaned invisibly; `list` reads sizes only for
+  stale entries. `quotaBytes` comes from `StorageManager.estimate()`, `null`
+  when it gives none. `cache-key.ts` owns the key format and its inverse,
+  `parsePinCacheKey`.
   Browsers evict script-writable storage (Safari after seven days without
   interaction), which shows up as `absent`; the Engines page must not
   promise permanence.

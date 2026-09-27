@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PIN_CACHE_NAME, pinCacheKey } from "../../src/lib/pins/cache-key";
+import { PIN_CACHE_NAME, parsePinCacheKey, pinCacheKey } from "../../src/lib/pins/cache-key";
 import type { PinCacheKey, PinCacheKeyFn, PinCacheName, PinEntry } from "../../src/lib/pins/types";
 
 const pin: PinEntry = {
@@ -25,5 +25,24 @@ describe("pin cache key", () => {
 
 	it("changes when the sha256 changes", () => {
 		expect(pinCacheKey({ ...pin, sha256: "cd".repeat(32) })).not.toBe(pinCacheKey(pin));
+	});
+});
+
+describe("parsePinCacheKey", () => {
+	it("inverts pinCacheKey", () => {
+		expect(parsePinCacheKey(pinCacheKey(pin))).toEqual({
+			key: pinCacheKey(pin),
+			id: pin.id,
+			sha256: pin.sha256,
+		});
+	});
+
+	it("rejects keys that are not in the pin format", () => {
+		expect(parsePinCacheKey("/engines/junk.wasm")).toBeUndefined();
+		expect(parsePinCacheKey("/engines/master-8c66796/avalanche.wasm")).toBeUndefined();
+		expect(
+			parsePinCacheKey(`/engines/a/b/avalanche.wasm?sha256=${"ab".repeat(32)}`),
+		).toBeUndefined();
+		expect(parsePinCacheKey(`/engines/x/avalanche.wasm?sha256=${"AB".repeat(32)}`)).toBeUndefined();
 	});
 });

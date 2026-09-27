@@ -15,7 +15,7 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -26,5 +26,22 @@ jobs:
       - run: npm run check
       - run: npm run lint
       - run: npm test
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: 0.16.0
+      - id: pins
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build-pins/out
+          key: pins-${{ runner.os }}-${{ hashFiles('engines/pins.json', 'scripts/build-pins.sh', 'scripts/build-avalanche-wasm.sh', 'scripts/pins-catalogue.ts') }}
+      - if: steps.pins.outputs.cache-hit != 'true'
+        run: scripts/build-pins.sh build-pins/out
+      - run: |
+          for id in $(node scripts/pins-catalogue.ts list engines/pins.json | cut -f1); do
+            node scripts/check-abi.ts "build-pins/out/engines/$id/avalanche.wasm"
+          done
+      - run: npm run test:integration
+        env:
+          AVALANCHE_FIXTURE_WASM: build-pins/out/engines/master-8c66796/avalanche.wasm
       - run: npx playwright install --with-deps chromium webkit
       - run: npm run test:e2e

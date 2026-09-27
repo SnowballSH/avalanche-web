@@ -57,6 +57,10 @@ be edited in place. `node scripts/record-abi.mjs <avalanche.wasm>` regenerates
 `abi.json`; a pin whose ABI differs from it belongs to a new ABI version with
 its own vendored directory.
 
+The pin catalogue, the build that turns each pinned commit into a served
+wasm, and the ABI gate that rejects a mismatching build are described in
+[`pins.md`](pins.md).
+
 The vendored sources import each other with `.ts` extensions and use
 `Promise.withResolvers`, so `tsconfig.json` sets `allowImportingTsExtensions`
 and `rewriteRelativeImportExtensions` on top of SvelteKit's `esnext` lib. Its

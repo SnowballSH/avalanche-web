@@ -1,12 +1,15 @@
 /// <reference types="node" />
 import { existsSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { type EngineConnectionFactory, WorkerEngineHost } from "../../src/lib/engine/host";
 import type { EngineNotice, SearchInfo, UciSession } from "../../src/lib/engine/types";
 import type { PinEntry } from "../../src/lib/pins/types";
 import { startNodeClient } from "../../vendor/avalanche-web-abi1/src/node/client.ts";
 
-const FIXTURE_PATH = new URL("../../.cache/fixtures/avalanche-8c66796.wasm", import.meta.url);
+const FIXTURE_PATH = process.env.AVALANCHE_FIXTURE_WASM
+	? pathToFileURL(process.env.AVALANCHE_FIXTURE_WASM)
+	: new URL("../../.cache/fixtures/avalanche-8c66796.wasm", import.meta.url);
 
 const pin: PinEntry = {
 	id: "master-8c66796",
@@ -58,7 +61,7 @@ describe("EngineHost against the real 8c66796 wasm", () => {
 	beforeAll(async () => {
 		if (!existsSync(FIXTURE_PATH)) {
 			throw new Error(
-				`Fixture wasm missing at ${FIXTURE_PATH.pathname}; run scripts/fetch-fixture-wasm.sh`,
+				`Fixture wasm missing at ${FIXTURE_PATH.pathname}; run scripts/fetch-fixture-wasm.sh or set AVALANCHE_FIXTURE_WASM`,
 			);
 		}
 		host.onNotice((notice) => notices.push(notice));

@@ -150,6 +150,16 @@ comes from `scripts/fetch-fixture-wasm.sh`, which builds the commit with Zig
 `.cache/fixtures/`, and reuses the file once it exists. CI runs it against
 the pin it has just built, through `AVALANCHE_FIXTURE_WASM`.
 
+Each worker the integration test starts gets an `EngineTap`
+(`tests/integration/helpers/engine-tap.ts`) between the engine and the host:
+it records every line and can hold delivery to the host. The superseded-search
+case uses it to make the in-flight race deterministic: after the first `info`
+of a `go infinite`, it holds delivery, waits (bounded) until the real engine
+has printed another `info depth` line, changes the position, then releases.
+Those held lines reach the host only after the change, as they would with
+real message latency, and the test asserts the stale stream received exactly
+the infos parsed from lines delivered before the change.
+
 ## Planned layout
 
 ```

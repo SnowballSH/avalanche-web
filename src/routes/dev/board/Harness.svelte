@@ -15,6 +15,7 @@ import type { Fen, Score, UciMove } from "$lib/engine/types";
 const POSITIONS = {
 	start: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
 	promotion: "8/4P3/8/8/8/8/8/k6K w - - 0 1",
+	blackPromotion: "k6K/8/8/8/8/8/4p3/8 b - - 0 1",
 	castling: "r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1",
 } as const;
 

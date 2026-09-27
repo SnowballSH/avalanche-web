@@ -32,6 +32,27 @@ describe("toWhitePov", () => {
 	});
 });
 
+describe("mate 0", () => {
+	const BLACK_MATED = "k6R/8/1K6/8/8/8/8/8 b - - 0 1";
+	const WHITE_MATED = "8/8/8/8/8/1k6/8/K6r w - - 0 1";
+
+	it("names the side that delivered mate rather than the sign of zero", () => {
+		expect(toWhitePov(mate(0), "black")).toEqual({ kind: "checkmate", winner: "white" });
+		expect(toWhitePov(mate(0), "white")).toEqual({ kind: "checkmate", winner: "black" });
+	});
+
+	it("fills the bar for the winner and labels the result", () => {
+		const whiteWon = whitePovAt(BLACK_MATED, mate(0));
+		expect(whiteWinChance(whiteWon)).toBe(1);
+		expect(evalBarFraction(whiteWon)).toBe(1);
+		expect(formatScore(whiteWon)).toBe("1-0");
+		const blackWon = whitePovAt(WHITE_MATED, mate(0));
+		expect(whiteWinChance(blackWon)).toBe(-1);
+		expect(evalBarFraction(blackWon)).toBe(0);
+		expect(formatScore(blackWon)).toBe("0-1");
+	});
+});
+
 describe("whiteWinChance", () => {
 	it("is zero at equality, symmetric, and saturates at one", () => {
 		expect(whiteWinChance(cp(0))).toBe(0);
@@ -42,10 +63,9 @@ describe("whiteWinChance", () => {
 		expect(whiteWinChance(cp(-100_000))).toBe(-1);
 	});
 
-	it("treats mate as a certain result, with mate zero as the mated side", () => {
+	it("treats mate as a certain result", () => {
 		expect(whiteWinChance(mate(5))).toBe(1);
 		expect(whiteWinChance(mate(-1))).toBe(-1);
-		expect(whiteWinChance(mate(0))).toBe(-1);
 	});
 });
 
@@ -70,7 +90,6 @@ describe("formatScore", () => {
 		expect(formatScore(cp(0))).toBe("0.00");
 		expect(formatScore(mate(4))).toBe("#4");
 		expect(formatScore(mate(-4))).toBe("-#4");
-		expect(formatScore(mate(0))).toBe("-#0");
 		expect(formatScore(null)).toBe("");
 	});
 });

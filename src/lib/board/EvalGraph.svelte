@@ -1,9 +1,8 @@
 <script lang="ts">
-import type { Score } from "$lib/engine/types";
-import { whiteWinChance } from "./eval";
+import { type PovScore, whiteWinChance } from "./eval";
 
 interface Props {
-	scores: readonly (Score | null)[];
+	scores: readonly (PovScore | null)[];
 	current: number;
 	onselect?: (index: number) => void;
 	class?: string;
@@ -112,6 +111,10 @@ const label = (index: number) => (index === 0 ? "Start position" : `Ply ${index}
 	.hit:hover,
 	.hit:focus-visible {
 		background: color-mix(in srgb, var(--fui-accent) 25%, transparent);
-		outline: none;
+	}
+
+	.hit:focus-visible {
+		outline: 2px solid var(--fui-accent);
+		outline-offset: -2px;
 	}
 </style>

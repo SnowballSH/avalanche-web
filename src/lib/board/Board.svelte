@@ -47,6 +47,9 @@ let {
 	class: className = "",
 }: Props = $props();
 
+const ROOK_CASTLE = true;
+
+let container = $state<HTMLElement>();
 let root = $state<HTMLElement>();
 let api: Api | undefined;
 let promotion = $state<{ orig: Key; dest: Key } | null>(null);
@@ -66,6 +69,7 @@ const movableConfig = (): Config => {
 		movable: {
 			color: movable?.color ?? "both",
 			dests: active && movable ? movable.dests : new Map(),
+			rookCastle: ROOK_CASTLE,
 		},
 		premovable: { enabled: premovable && movable !== undefined },
 	};
@@ -89,14 +93,20 @@ const afterMove = (orig: Key, dest: Key, metadata: MoveMetadata) => {
 	}
 };
 
-const pickPromotion = (role: PromotionRole) => {
+const closePromotion = () => {
 	const pending = promotion;
 	promotion = null;
+	container?.focus();
+	return pending;
+};
+
+const pickPromotion = (role: PromotionRole) => {
+	const pending = closePromotion();
 	if (pending) emitMove(pending.orig, pending.dest, role);
 };
 
 const cancelPromotion = () => {
-	promotion = null;
+	closePromotion();
 	api?.set(syncConfig());
 };
 
@@ -160,7 +170,7 @@ export const playPremove = (): boolean => api?.playPremove() ?? false;
 export const cancelPremove = (): void => api?.cancelPremove();
 </script>
 
-<div class={`board ${className}`}>
+<div class={`board ${className}`} tabindex="-1" bind:this={container}>
 	<div class="cg-wrap" bind:this={root}></div>
 	{#if promotion}
 		<PromotionPicker

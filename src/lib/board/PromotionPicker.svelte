@@ -26,19 +26,54 @@ const stacksDownward = $derived((dest.charAt(1) === "8") === (orientation === "w
 
 const row = (index: number) => (stacksDownward ? index : 7 - index);
 
+const choices = (): HTMLButtonElement[] =>
+	Array.from(dialog?.querySelectorAll<HTMLButtonElement>(".choice") ?? []);
+
+const trapTab = (event: KeyboardEvent) => {
+	const buttons = choices();
+	const first = buttons[0];
+	const last = buttons[buttons.length - 1];
+	if (!first || !last) return;
+	const active = document.activeElement;
+	const index = buttons.findIndex((button) => button === active);
+	if (index === -1) {
+		event.preventDefault();
+		first.focus();
+	} else if (event.shiftKey && active === first) {
+		event.preventDefault();
+		last.focus();
+	} else if (!event.shiftKey && active === last) {
+		event.preventDefault();
+		first.focus();
+	}
+};
+
 const onkeydown = (event: KeyboardEvent) => {
 	if (event.key === "Escape") oncancel();
+	else if (event.key === "Tab") trapTab(event);
 };
 
 $effect(() => {
-	dialog?.querySelector<HTMLButtonElement>(".choice")?.focus();
+	choices()[0]?.focus();
 });
 </script>
 
 <svelte:window {onkeydown} />
 
-<div class="promotion cg-wrap" role="dialog" aria-label="Promote to" bind:this={dialog}>
-	<button type="button" class="backdrop" aria-label="Cancel promotion" onclick={oncancel}></button>
+<div
+	class="promotion cg-wrap"
+	role="dialog"
+	aria-modal="true"
+	aria-label="Promote to"
+	bind:this={dialog}
+>
+	<button
+		type="button"
+		class="backdrop"
+		aria-label="Cancel promotion"
+		tabindex="-1"
+		onclick={oncancel}
+	></button>
 	{#each PROMOTION_ROLES as role, index (role)}
 		<button
 			type="button"
@@ -83,7 +118,11 @@ $effect(() => {
 	.choice:hover,
 	.choice:focus-visible {
 		background: var(--fui-accent);
-		outline: none;
+	}
+
+	.choice:focus-visible {
+		outline: 3px solid var(--fui-surface-base);
+		outline-offset: 2px;
 	}
 
 	.choice piece {

@@ -1,10 +1,9 @@
 <script lang="ts">
 import type { Color } from "$lib/chess/types";
-import type { Score } from "$lib/engine/types";
-import { evalBarFraction, formatScore } from "./eval";
+import { evalBarFraction, formatScore, type PovScore } from "./eval";
 
 interface Props {
-	score: Score | null;
+	score: PovScore | null;
 	orientation?: Color;
 	class?: string;
 }

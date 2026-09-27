@@ -89,11 +89,62 @@ test("king onto rook castles as e1g1 in standard chess", async ({ page }) => {
 	await expect(page.getByTestId("moves")).toHaveText("e1g1");
 });
 
+test("king two squares castles as e1g1 in standard chess", async ({ page }) => {
+	await page.getByLabel("Position", { exact: true }).selectOption("castling");
+	await drag(page, "e1", "g1");
+	await expect(page.getByTestId("moves")).toHaveText("e1g1");
+});
+
 test("king onto rook castles as e1h1 in Chess960", async ({ page }) => {
 	await page.getByLabel("Position", { exact: true }).selectOption("castling");
 	await page.getByLabel("Chess960").check();
 	await drag(page, "e1", "h1");
 	await expect(page.getByTestId("moves")).toHaveText("e1h1");
+});
+
+test("king two squares is not a Chess960 castling move", async ({ page }) => {
+	await page.getByLabel("Position", { exact: true }).selectOption("castling");
+	await page.getByLabel("Chess960").check();
+	await drag(page, "e1", "g1");
+	await drag(page, "e2", "e4");
+	await expect(page.getByTestId("moves")).toHaveText("e2e4");
+});
+
+test("a Black promotion on a flipped board stacks the picker from the top", async ({ page }) => {
+	await page.getByLabel("Position", { exact: true }).selectOption("blackPromotion");
+	await page.getByRole("button", { name: "Flip" }).click();
+	await expect(page.locator(".board .cg-wrap")).toHaveClass(/orientation-black/);
+	await drag(page, "e2", "e1", "black");
+	const picker = page.getByRole("dialog", { name: "Promote to" });
+	await expect(picker).toBeVisible();
+	await expect(picker).toHaveAttribute("aria-modal", "true");
+	const queen = picker.getByRole("button", { name: "Promote to queen" });
+	const knight = picker.getByRole("button", { name: "Promote to knight" });
+	const target = await squareCentre(page, "e1", "black");
+	const queenBox = await queen.boundingBox();
+	const knightBox = await knight.boundingBox();
+	if (!queenBox || !knightBox) throw new Error("the choices have no box");
+	expect(Math.abs(queenBox.x + queenBox.width / 2 - target.x)).toBeLessThan(2);
+	expect(Math.abs(queenBox.y + queenBox.height / 2 - target.y)).toBeLessThan(2);
+	expect(knightBox.y).toBeGreaterThan(queenBox.y);
+	await queen.click();
+	await expect(page.getByTestId("moves")).toHaveText("e2e1q");
+});
+
+test("the promotion picker traps Tab and hands focus back to the board on close", async ({
+	page,
+}) => {
+	await page.getByLabel("Position", { exact: true }).selectOption("promotion");
+	await drag(page, "e7", "e8");
+	const picker = page.getByRole("dialog", { name: "Promote to" });
+	await expect(picker.getByRole("button", { name: "Promote to queen" })).toBeFocused();
+	await page.keyboard.press("Shift+Tab");
+	await expect(picker.getByRole("button", { name: "Promote to knight" })).toBeFocused();
+	await page.keyboard.press("Tab");
+	await expect(picker.getByRole("button", { name: "Promote to queen" })).toBeFocused();
+	await page.keyboard.press("Escape");
+	await expect(picker).toBeHidden();
+	await expect(page.locator(".board")).toBeFocused();
 });
 
 test("the eval bar and graph render, and a graph click selects a ply", async ({ page }) => {

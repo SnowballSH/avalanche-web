@@ -72,6 +72,12 @@ export interface BoundedSearch {
 
 export type SearchLimits = (InfiniteSearch | BoundedSearch) & { readonly ponder?: boolean };
 
+export interface SearchAbortedError extends Error {
+	readonly name: "SearchAbortedError";
+	readonly searchId: SearchId;
+	readonly reason: "terminated" | "crashed";
+}
+
 export interface SearchHandle {
 	readonly searchId: SearchId;
 	readonly info: AsyncIterable<SearchInfo>;
@@ -81,6 +87,7 @@ export interface SearchHandle {
 }
 
 export interface UciSession {
+	readonly capabilities: EngineCapabilities | null;
 	handshake(): Promise<EngineCapabilities>;
 	setOption(name: string, value?: UciOptionValue): Promise<void>;
 	newGame(): Promise<void>;
@@ -133,6 +140,11 @@ export interface EngineLease {
 	readonly owner: LeaseOwner;
 	readonly state: LeaseState;
 	onStateChange(listener: (state: LeaseState) => void): Unsubscribe;
+}
+
+export interface LeaseConflictError extends Error {
+	readonly name: "LeaseConflictError";
+	readonly owner: LeaseOwner;
 }
 
 export interface EngineScheduler {

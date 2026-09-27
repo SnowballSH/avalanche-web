@@ -76,24 +76,41 @@ line: `play` → `chess` → `engine` → `pins`, with no cycles.
   `stop()` / `ponderhit()` raise the corresponding search signal. Every
   parsed line carries the `searchId` it was produced under, so a line from a
   superseded search can be recognised and dropped rather than rendered
-  against a newer position.
+  against a newer position. `result` resolves once the engine's `bestmove`
+  arrives, including after `stop()`; it rejects with a `SearchAbortedError`
+  (`reason: "terminated"` or `"crashed"`) when the host terminates the
+  worker or the worker crashes before that. A `position` call issued while a
+  search runs stops that search first, so its `result` still resolves.
+  `capabilities` is `null` until `handshake()` has completed and then holds
+  its result; `handshake()` is idempotent and returns the same capabilities
+  on every later call without re-sending `uci`.
 - `SearchLimits` is either `{ infinite: true }` or any combination of
   `depth`, `nodes`, `movetime` and the clock fields (`wtime`, `btime`,
   `winc`, `binc`, `movestogo`); either form may add `ponder: true`, which
-  becomes `go ponder`.
+  becomes `go ponder`. A `BoundedSearch` with no bound at all (`{}`) is
+  sent as `go infinite`: the session never issues a bare `go`, whose end
+  the caller could not predict.
 - `BestMove.move` is `null` for `bestmove (none)`.
+- The engine's terminal line for a position with no legal moves is
+  `info depth 0 score mate 0` (in check) or `info depth 0 score cp N`
+  (stalemate), with no `multipv` and no `pv` (`search.zig:534`). The parser
+  yields a `SearchInfo` with `multipv: 1` and an empty `pv` for it.
 - `EngineCapabilities.options` maps each advertised option name to its
   `UciOptionSpec`; the derived flags (`threadsMax`, `supportsLimitStrength`,
   `eloRange`, `multiPvMax`, `supportsChess960`) are what the UI reads. A pin
   that does not advertise `UCI_Elo` has `eloRange: null`.
 - `EngineHost` owns one Worker per active pin. `start(pin, options)` posts
-  the vendored `init` message, whose only payload is `wasmUrl`; the host sets
-  it to the pin's cache key (`PinCacheKeyFn` below), and the wrapped worker's
-  loader answers that key from the `avalanche-pins-v1` Cache Storage. The
-  worker never receives bytes over `postMessage`, and no `blob:` URL is
-  involved, since `connect-src 'self'` would refuse one. When the key is not
-  in the cache (the pin was deleted in another tab) the loader fails with a
-  `PinUnavailableError`.
+  the vendored `init` message, whose payload is `wasmUrl` and the
+  `signalBuffer` (the shared stop/ponderhit signal) and never bytes; the host
+  sets `wasmUrl` to the pin's cache key (`PinCacheKeyFn` below), and the
+  wrapped worker's loader answers that key from the `avalanche-pins-v1`
+  Cache Storage. No `blob:` URL is involved, since `connect-src 'self'`
+  would refuse one. When the key is not in the cache (the pin was deleted in
+  another tab) the loader fails with a `PinUnavailableError`. `start` and
+  `restart` resolve only after the worker is ready, `handshake()` has
+  produced the capabilities, and `Hash` (and `Threads`, when given) has been
+  applied, so the returned session's `capabilities` is never `null` and any
+  hash notice has already been delivered.
 - `EngineStartOptions` carries what needs a fresh worker: `hashMb` and,
   when the pin advertises `Threads` max > 1, `threads`. Everything else
   (`MultiPV`, `UCI_Elo`, `UCI_Chess960`, `Ponder`) goes through
@@ -106,10 +123,13 @@ line: `play` → `chess` → `engine` → `pins`, with no cycles.
   `engine-error` notice comes from `info string error: …`. Neither restarts
   the worker. A worker trap, load failure or undecodable message goes to
   `onCrash` as an `EngineCrash` with the pin and the search that was running.
-- `EngineScheduler` hands out an `EngineLease` per owner. Acquiring a `play`
-  lease suspends an active `analysis` lease; releasing it lets analysis
-  resume. The lease's `state` and `onStateChange` are how the analysis
-  controller learns to stop and to restart its search.
+- `EngineScheduler` hands out at most one `EngineLease` per owner. Acquiring
+  a `play` lease suspends an active `analysis` lease; releasing it lets
+  analysis resume. The lease's `state` and `onStateChange` are how the
+  analysis controller learns to stop and to restart its search. A second
+  `acquire` for an owner whose lease is still `active` or `suspended` throws
+  a `LeaseConflictError`; the owner must `release` first. Releasing a lease
+  twice is a no-op.
 
 ### Pins (`src/lib/pins/types.ts`)
 
@@ -145,8 +165,13 @@ line: `play` → `chess` → `engine` → `pins`, with no cycles.
   ordered node ids; `addMove` returns the existing child when the move is
   already present, so transpositions within a node do not duplicate;
   `promote(id)` makes a variation the first child at every ancestor along
-  its path; `deleteFrom(id)` removes the subtree. `setComment` and `setEval`
-  annotate a node; `node(id)` reads the annotated node for export.
+  its path; `deleteFrom(id)` removes the subtree, and `deleteFrom(root)` is
+  a no-op, so the tree always has its root. `addMove` with a move that is
+  illegal in the parent's position throws an `IllegalMoveError` carrying the
+  `fen` and `uci`, and leaves the tree unchanged. `setComment`, `setNags`
+  (PGN numeric annotation glyphs, kept in order so import and export round
+  trip) and `setEval` annotate a node; `node(id)` reads the annotated node
+  for export.
 - `StartPosition` is `standard`, a `fen`, or `frc` with a Scharnagl number
   0–959. `GameTree.start` keeps it so PGN export can emit `[Variant
   "Chess960"]` and `[FEN …]`.
@@ -162,7 +187,15 @@ line: `play` → `chess` → `engine` → `pins`, with no cycles.
   side, adds the increment, switches sides and returns the presser's
   remaining time. `remaining(side, now)` and `flagged(now)` take the
   timestamp explicitly, so a backgrounded tab whose timers were throttled
-  still charges the full elapsed time when it returns.
+  still charges the full elapsed time when it returns. `stop(now)` charges
+  the running side up to `now` and stops both clocks, so that after
+  checkmate, resignation or agreement `flagged()` can never report a flag.
+  `snapshot(now)` returns a serialisable `ClockSnapshot` (remaining ms per
+  side and the running side or `null`) for the persisted game; passing it
+  as `restore` in `ClockOptions` rebuilds the clock with those remaining
+  times, and the restored running side starts being charged from the moment
+  of restore, not from the snapshot, since the game was not being played
+  while the tab was closed.
 
 ## Engine lifecycle
 

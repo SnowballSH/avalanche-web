@@ -35,7 +35,7 @@ const trapTab = (event: KeyboardEvent) => {
 	const last = buttons[buttons.length - 1];
 	if (!first || !last) return;
 	const active = document.activeElement;
-	const index = buttons.findIndex((button) => button === active);
+	const index = active instanceof HTMLButtonElement ? buttons.indexOf(active) : -1;
 	if (index === -1) {
 		event.preventDefault();
 		first.focus();

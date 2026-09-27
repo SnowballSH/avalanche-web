@@ -25,7 +25,10 @@ function usage(): never {
 }
 
 const [command, sourcePath, outdir] = process.argv.slice(2);
-if (sourcePath === undefined) usage();
+const validInvocation =
+	(command === "list" && sourcePath !== undefined && outdir === undefined) ||
+	(command === "emit" && sourcePath !== undefined && outdir !== undefined);
+if (!validInvocation || sourcePath === undefined) usage();
 const source = parsePinCatalogueSource(JSON.parse(await readFile(sourcePath, "utf8")));
 
 const wasmPathOf = (root: string, pin: PinSource): string =>
@@ -40,12 +43,10 @@ function measure(root: string): (pin: PinSource) => PinMeasurement {
 
 if (command === "list") {
 	process.stdout.write(source.pins.map((pin) => `${pin.id}\t${pin.commit}\n`).join(""));
-} else if (command === "emit" && outdir !== undefined) {
+} else if (outdir !== undefined) {
 	const served = withMeasurements(source, measure(outdir));
 	const target = join(outdir, "engines", "pins.json");
 	await writeFile(target, `${JSON.stringify(served, null, "\t")}\n`);
 	for (const pin of served.pins) console.log(`${pin.id}\t${pin.sha256}\t${pin.bytes}`);
 	console.log(`pins-catalogue: wrote ${target}`);
-} else {
-	usage();
 }

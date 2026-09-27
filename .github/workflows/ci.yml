@@ -33,13 +33,10 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: build-pins/out
-          key: pins-${{ runner.os }}-${{ hashFiles('engines/pins.json', 'scripts/build-pins.sh', 'scripts/build-avalanche-wasm.sh', 'scripts/pins-catalogue.ts') }}
+          key: pins-${{ runner.os }}-${{ hashFiles('engines/pins.json', 'scripts/build-pins.sh', 'scripts/build-avalanche-wasm.sh', 'scripts/pins-catalogue.ts', 'src/lib/pins/catalogue-source.ts') }}
       - if: steps.pins.outputs.cache-hit != 'true'
         run: scripts/build-pins.sh build-pins/out
-      - run: |
-          for id in $(node scripts/pins-catalogue.ts list engines/pins.json | cut -f1); do
-            node scripts/check-abi.ts "build-pins/out/engines/$id/avalanche.wasm"
-          done
+      - run: scripts/check-pins-abi.sh build-pins/out
       - run: npm run test:integration
         env:
           AVALANCHE_FIXTURE_WASM: build-pins/out/engines/master-8c66796/avalanche.wasm

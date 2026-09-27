@@ -24,9 +24,9 @@ in this repository; the engine's source stays in
 ```
 
 `src/lib/pins/catalogue-source.ts` validates it: `abi` is `1`, `pins` is
-non-empty, every `id` is a URL path segment of `[a-z0-9.-]`, every `commit`
-is the full 40-character lowercase hash, `label` is non-empty, `date` is
-`YYYY-MM-DD`, and no `id` or `commit` repeats. `tests/unit/pins-catalogue.test.ts`
+non-empty, every `id` starts with `[a-z0-9]` and continues with `[a-z0-9.-]`,
+every `commit` is the full 40-character lowercase hash, `label` is non-empty,
+`date` is `YYYY-MM-DD`, and no `id` or `commit` repeats. `tests/unit/pins-catalogue.test.ts`
 checks the committed file against the schema, so a malformed catalogue fails
 `npm test` before any build starts.
 
@@ -85,10 +85,12 @@ actually served, since it is measured from the output rather than declared.
 ## CI
 
 The `verify` job installs Zig 0.16.0 with `mlugg/setup-zig`, restores
-`build-pins/out` from a cache keyed on `engines/pins.json` and the build
-scripts, runs `build-pins.sh` on a miss, runs `check-abi.ts` on every pin's
-output, and then runs `npm run test:integration` with
-`AVALANCHE_FIXTURE_WASM` pointing at the first pin.
+`build-pins/out` from a cache keyed on `engines/pins.json`, the build scripts
+and the catalogue validator, runs `build-pins.sh` on a miss, runs
+`scripts/check-pins-abi.sh build-pins/out` (which fails on an empty pin list,
+a missing wasm, or an ABI difference, so a restored cache is gated too), and
+then runs `npm run test:integration` with `AVALANCHE_FIXTURE_WASM` pointing
+at the first pin.
 
 ## Adding a pin
 

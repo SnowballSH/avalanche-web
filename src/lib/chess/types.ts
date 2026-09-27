@@ -46,6 +46,40 @@ export interface GameTree {
 	sanAt(id: NodeId): San | null;
 }
 
+export type ImportErrorKind =
+	| "too-large"
+	| "invalid-fen"
+	| "illegal-move"
+	| "unsupported-variant"
+	| "no-games"
+	| "malformed";
+
+export interface ImportError {
+	readonly kind: ImportErrorKind;
+	readonly message: string;
+	readonly game?: number;
+	readonly ply?: number;
+	readonly san?: San;
+}
+
+export type ImportResult<T> =
+	| { readonly ok: true; readonly value: T }
+	| { readonly ok: false; readonly error: ImportError };
+
+export interface ParsedFen {
+	readonly fen: Fen;
+}
+
+export interface ImportedGame {
+	readonly headers: ReadonlyMap<string, string>;
+	tree(): ImportResult<GameTree>;
+}
+
+export interface ExportOptions {
+	readonly evals: boolean;
+	readonly headers?: ReadonlyMap<string, string>;
+}
+
 export type GameResultReason =
 	| "checkmate"
 	| "stalemate"

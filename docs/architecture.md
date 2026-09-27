@@ -313,6 +313,73 @@ line: `play` → `chess` → `engine` → `pins`, with no cycles.
   `reason`: `checkmate`, `stalemate`, `threefold`, `fifty-move`,
   `insufficient`, `flag`, `resign` or `agreement`.
 
+#### Rules, notation and the engine's move format
+
+The rules, SAN, FEN and PGN come from chessops. `createGameTree` (`tree.ts`)
+holds one normalised FEN per node and rebuilds the chessops position from it
+on demand, with a small cache of the most recently added positions so
+consecutive `addMove` calls do not re-parse the parent.
+
+`GameNode.move` is the string the engine expects for that tree's mode, so
+`pathTo(id)` maps straight onto `position startpos moves …`:
+
+- a `standard` or `fen` start runs the engine without `UCI_Chess960`, and
+  castling is stored as the king's destination (`e1g1`);
+- an `frc` start runs it with `UCI_Chess960 true`, and castling is stored as
+  king-takes-rook (`e1h1`).
+
+`addMove` accepts either form on input; chessops normalises both. A `fen`
+start whose castling rooks are not on the a- and h-files is not supported
+(the engine would need `UCI_Chess960` for it), so a Chess960 PGN must start
+from one of the 960 start positions.
+
+`parseFen` (`fen.ts`) validates the text and the legality of the setup and
+returns the normalised FEN or an `invalid-fen` error. `frcFen(n)` (`frc.ts`)
+derives the Scharnagl position, emitting X-FEN castling (`KQkq`, which
+chessops normalises to for the outermost rooks); `frcNumber(fen)` inverts it
+by comparing the first four FEN fields against the table, so the move
+counters are ignored, and `randomFrc()` draws from `crypto` without modulo
+bias. Position 518 is the standard start.
+
+#### PGN import and export
+
+Import is sized for a hostile paste. `importPgn` refuses input over
+`MAX_IMPORT_BYTES` (5 MB, measured in UTF-8) before parsing, turns a chessops
+parser budget overrun into `malformed`, and returns `no-games` when nothing
+in the text is a game. It parses the text and returns the games with their
+headers, but replays no moves: each `ImportedGame.tree()` resolves that
+game's start and builds its tree on first call (memoised), returning
+`invalid-fen`, `unsupported-variant` or `illegal-move` (with the game index,
+the 1-based ply and the SAN) as a typed error. So a 5 MB paste costs only the
+parse, and a broken game does not block the others: the picker lists every
+game and the error appears for the one the user opens. Nothing in the import
+path throws on bad input.
+
+Chess960 is detected from the `Variant` tag (`Chess960`, `Chess 960`,
+`Fischerandom`, case-insensitive); with no `FEN` tag it is position 518.
+Other variants are `unsupported-variant`. A `FEN` tag without a variant is a
+`fen` start.
+
+Comments carry evaluations as lichess does: `[%eval 0.30,20]` or
+`[%eval #4,30]` from White's point of view, while `SearchInfo.score` is from
+the side to move, so import and export negate the value on Black-to-move
+nodes. A comment before a variation's first move is folded into that move's
+comment. `exportPgn` writes the seven-tag roster (caller headers override it,
+and extra headers follow it), derives `Variant`, `SetUp` and `FEN` from
+`tree.start` (never from the caller's headers), emits every variation with
+its NAGs and comments, and appends evaluation comments when `evals` is set.
+
+#### Adjudication and the draw offer
+
+`adjudicate(fen, history)` (`adjudicate.ts`) checks, in order, checkmate,
+stalemate, insufficient material, the fifty-move rule (halfmove clock at
+100) and threefold repetition, where `history` is the FEN of every earlier
+position in the game and repetition compares the first four FEN fields.
+`drawOfferAccepted(scores)` takes the engine's final score for each of its
+own moves, oldest first, and accepts when there are at least ten and the last
+ten are all exact centipawn scores within ±20; a mate score or a bounded
+score in the window rejects.
+
 ### Play (`src/lib/play/types.ts`)
 
 - `Clock` is built by a `ClockFactory` from a `TimeControl` (`baseMs`,

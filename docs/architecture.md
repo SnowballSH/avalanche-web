@@ -256,10 +256,30 @@ line: `play` → `chess` → `engine` → `pins`, with no cycles.
   `PinStoreError` whose `code` is `network`, `corrupt`, `quota` or `missing`.
   `usage()` reports `StorageUsage`, and `requestPersistence()` resolves with
   whether `navigator.storage.persist()` was granted.
+- `src/lib/pins/store.ts` implements it. `get` never downloads: a miss rejects
+  with `missing`, and callers run `download` first. The transfer is fetched
+  with `cache: "no-store"` so the HTTP cache holds no second copy of a 51 MB
+  file, and lands in one preallocated buffer of `PinEntry.bytes`; a body that
+  overruns or falls short of that length is `corrupt` like a digest mismatch.
+  Concurrent `download` calls for the same key share one transfer. The
+  `downloading` and `corrupt` marks live in the store instance, so another
+  tab sees only `ready` or `absent`. `usedBytes` is the sum of the cached
+  pins' `Content-Length` headers (written at `put` time), and `quotaBytes`
+  comes from `StorageManager.estimate()`, `null` when it gives none.
+  Browsers evict script-writable storage (Safari after seven days without
+  interaction), which shows up as `absent`; the Engines page must not
+  promise permanence.
+- `src/lib/pins/catalog.ts` fetches `/engines/pins.json`, validates the
+  source fields through `catalogue-source.ts`, then the served `sha256`
+  (64 lowercase hex) and `bytes` (positive integer) per pin, and rejects with
+  a `PinCatalogueError` on an HTTP failure, a non-JSON body or an invalid
+  document.
 - `GetDefaultPin` and `SetDefaultPin` type the default-pin choice that
   the pin layer keeps in `localStorage`; the getter falls back to the first
   catalogue pin when the stored id has been retired, and returns `null` only
-  for an empty catalogue.
+  for an empty catalogue. `src/lib/pins/default-pin.ts` keeps the id under
+  `avalanche.defaultPin`; every storage access is wrapped, so a throwing or
+  absent `localStorage` degrades to the first-pin fallback.
 
 ### Chess (`src/lib/chess/types.ts`)
 

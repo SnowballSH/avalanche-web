@@ -65,6 +65,10 @@ The chessground wrapper, the promotion picker, the evaluation bar and graph,
 the score conventions they share and the piece-set licence are described in
 [`board.md`](board.md).
 
+The analysis page, its controller, the browser-wide engine runtime and the
+local serving that the end-to-end tests rely on are described under
+[The analysis board](#the-analysis-board) below.
+
 The vendored sources import each other with `.ts` extensions and use
 `Promise.withResolvers`, so `tsconfig.json` sets `allowImportingTsExtensions`
 and `rewriteRelativeImportExtensions` on top of SvelteKit's `esnext` lib. Its
@@ -167,6 +171,8 @@ src/lib/engine/   EngineHost, UciSession, capabilities, scheduler
 src/lib/pins/     PinCatalog, PinStore
 src/lib/chess/    GameTree, PGN/FEN io, FRC, adjudication
 src/lib/board/    chessground wrapper
+src/lib/analysis/ AnalysisController, move tree, engine panel, import/export
+src/lib/shared/   engine runtime singleton, StartPositionPicker
 src/lib/play/     Clock, PlayController
 src/lib/shell/    Header and navigation
 src/routes/       analysis/, play/, engines/, editor/
@@ -456,3 +462,104 @@ score in the window rejects.
 One engine worker serves the site; an active game outranks the analysis
 board, and analysis is never silently dropped, only suspended until play is
 done.
+
+## The analysis board
+
+`src/routes/analysis/+page.svelte` wires the board, the move tree, the engine
+panel and the import/export tools to one `AnalysisController`
+(`src/lib/analysis/controller.ts`). The controller is plain TypeScript: it
+holds the `GameTree`, the cursor, the engine status and the current engine
+lines, and publishes an immutable `AnalysisState` snapshot to its subscribers
+on every change. The tree itself is mutable, so the snapshot carries a
+`revision` that increases whenever the tree changes; the page's derived values
+read it to recompute.
+
+### Driving the engine
+
+`setEngine(true)` acquires the `analysis` lease and, while the lease is active,
+(re)starts an infinite search on the node under the cursor. Every restart bumps
+a generation counter, stops the running search, clears the lines, then awaits
+the session, the options, `position` and `go`, bailing out if the generation
+moved on at any await. The loop that consumes a search's `info` stream drops
+every line once its generation is stale, on top of the session's own
+superseded-search guard, so a line from the previous position never renders
+against the new one.
+
+Before each search the controller applies `MultiPV`, `UCI_Chess960` (true for
+an FRC start) and `UCI_LimitStrength false` whenever the session or those
+values changed since it last applied them; the play page may have used the
+same session in between, so the options are re-applied after every resume.
+
+The controller owns stopping its own search when its lease is suspended: it
+listens to the lease's `onStateChange`, and on `suspended` stops the search,
+forgets the session and shows "paused"; on `active` it reconnects and restarts
+the search on the current node. Switching the engine off stops the search and
+releases the lease.
+
+The best line (`multipv 1`, exact score) is stored on its node with `setEval`
+when it is at least as deep as the stored one; PGN export with evaluations and
+the evaluation graph read it. Scores reach the UI through `whitePovAt` at the
+searched node, never raw.
+
+### Engine runtime
+
+`src/lib/shared/engine-runtime.ts` is the browser-wide singleton: one
+`EngineHost` (one worker), the scheduler, the `PinStore` and a memoised
+catalogue load. Its `EngineSessionCache` (`src/lib/engine/session-cache.ts`)
+returns the running session while the pin, Hash and Threads are unchanged and
+starts a new worker otherwise; a crash or a failed start clears it. The page's
+`connect` loads the catalogue, picks the chosen pin (else the default pin),
+runs `PinStore.download` with progress (it resolves at once for a cached pin,
+since `get` never downloads), then asks the cache for a session. Changing the
+pin, the Hash or the Threads calls `reconnect()`, which restarts the search on
+the new worker. A Hash allocation notice is shown with the size in effect.
+
+When `crossOriginIsolated` is false the engine switch is disabled and the
+panel explains why: the engine is stopped through a `SharedArrayBuffer`, which
+only a cross-origin isolated page may create.
+
+### Move tree and keyboard
+
+`moveTokens` (`src/lib/analysis/move-tokens.ts`) flattens the tree into move,
+"(" and ")" tokens iteratively, so a long game never recurses. A variation's
+first move and the main-line move after a variation are numbered, with `N…`
+for Black.
+
+| Key | Action |
+| --- | --- |
+| ← / → | parent / first child |
+| ↑ / ↓ | previous / next sibling variation |
+| Home / End | start position / end of the current line |
+
+Keys are ignored while focus is in a text field, a select or the promotion
+picker.
+
+### Import, export and links
+
+A pasted single line of at most 256 characters that contains `/` is treated as
+a FEN, anything else as PGN. `importPgn` enforces the 5 MB cap and builds only
+the picked game's tree; any error is shown inline and the current tree is
+kept. A multi-game paste lists the games to pick from. A FEN whose normalised
+form differs from the input (for example castling rights without their rook)
+is echoed back as "Loaded as …". PGN export keeps an imported game's headers.
+
+`src/lib/analysis/hash-link.ts` writes `#fen=` links with spaces as `_`; the
+page loads the hash on start and on every `hashchange`, and an invalid FEN
+shows an error and keeps the position.
+
+`src/lib/shared/StartPositionPicker.svelte` emits a `StartPosition`: standard,
+a FEN validated by `parseFen` (the normalised form is echoed), or an FRC
+Scharnagl number 0–959 typed or drawn with `randomFrc`.
+
+### Local serving and the end-to-end tests
+
+`vite.config.ts` adds a middleware to both the dev and the preview server that
+sends COOP `same-origin`, COEP `require-corp` and CORP `same-origin`, and
+serves `/engines/pins.json` and `/engines/<id>/avalanche.wasm` from
+`build-pins/out/engines` (override with `AVALANCHE_PINS_DIR`).
+`AVALANCHE_ISOLATION=off` drops the isolation headers. Playwright starts two
+preview servers from one build: the isolated one on 4173 for every test, and a
+non-isolated one on 4174 for the refusal test. The engine tests need the pin
+built first (`scripts/build-pins.sh build-pins/out`, which CI runs before the
+e2e step). The clipboard tests replace `navigator.clipboard.writeText` with a
+recorder, since WebKit grants Playwright no clipboard permission.

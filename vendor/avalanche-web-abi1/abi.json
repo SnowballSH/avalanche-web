@@ -1,0 +1,50 @@
+{
+	"imports": [
+		{
+			"module": "env",
+			"name": "avalanche_now_ms",
+			"kind": "function"
+		},
+		{
+			"module": "env",
+			"name": "avalanche_ponderhit_requested",
+			"kind": "function"
+		},
+		{
+			"module": "env",
+			"name": "avalanche_stop_requested",
+			"kind": "function"
+		},
+		{
+			"module": "env",
+			"name": "avalanche_write",
+			"kind": "function"
+		}
+	],
+	"exports": [
+		{
+			"name": "avalanche_bench",
+			"kind": "function"
+		},
+		{
+			"name": "avalanche_command",
+			"kind": "function"
+		},
+		{
+			"name": "avalanche_init",
+			"kind": "function"
+		},
+		{
+			"name": "avalanche_input_cap",
+			"kind": "function"
+		},
+		{
+			"name": "avalanche_input_ptr",
+			"kind": "function"
+		},
+		{
+			"name": "memory",
+			"kind": "memory"
+		}
+	]
+}

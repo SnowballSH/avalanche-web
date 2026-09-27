@@ -44,6 +44,35 @@ self-hosted through npm.
 - `npm run format` runs `biome check --write`, so that formatting and import
   order are fixed by the same command that `npm run lint` checks.
 
+## Vendored engine bindings
+
+`vendor/avalanche-web-abi1/` is Avalanche's `web/src` and MIT `LICENSE` at
+the commit named in its `SOURCE` file, copied verbatim; `abi.json` next to
+them records the wasm import and export names and kinds that
+`WebAssembly.Module.imports`/`exports` report for the build of that commit.
+`scripts/vendor-abi.sh <commit>` re-derives the copy from the commit's git
+objects (a local clone through `AVALANCHE_REPO`, else a shallow fetch from
+GitHub) and with `--check` fails on any drift, so the vendored tree can never
+be edited in place. `node scripts/record-abi.mjs <avalanche.wasm>` regenerates
+`abi.json`; a pin whose ABI differs from it belongs to a new ABI version with
+its own vendored directory.
+
+The vendored sources import each other with `.ts` extensions and use
+`Promise.withResolvers`, so `tsconfig.json` sets `allowImportingTsExtensions`
+and `rewriteRelativeImportExtensions` on top of SvelteKit's `esnext` lib. Its
+`src/node/` adapters (a worker-thread client and a stdio CLI) need Node's
+globals, which the app never uses, so they are excluded from the type check;
+Biome skips `vendor/` entirely, since upstream formats it with its own
+configuration and the drift check would reject any reformatting.
+
+`src/lib/engine/uci-parse.ts` and `capabilities.ts` parse the engine's
+output lines into the contracts below. `parseInfoLine` walks tokens and
+skips any it does not know (`wdl`, `hashfull`, `tbhits`, `currmove`), so a
+trailing `wdl W D L` after the score never breaks a line, and returns nothing
+for a line without both `depth` and `score`. `parseOptionLine` keeps the
+spaces inside names such as `Move Overhead` and maps a `string` default of
+`<empty>` to the empty string, which is what that UCI marker means.
+
 ## Planned layout
 
 ```
@@ -90,7 +119,9 @@ line: `play` → `chess` → `engine` → `pins`, with no cycles.
   becomes `go ponder`. A `BoundedSearch` with no bound at all (`{}`) is
   sent as `go infinite`: the session never issues a bare `go`, whose end
   the caller could not predict.
-- `BestMove.move` is `null` for `bestmove (none)`.
+- `BestMove.move` is `null` for `bestmove (none)` and for `bestmove 0000`,
+  which is what Avalanche prints when there is no legal move
+  (`search.zig:554`).
 - The engine's terminal line for a position with no legal moves is
   `info depth 0 score mate 0` (in check) or `info depth 0 score cp N`
   (stalemate), with no `multipv` and no `pv` (`search.zig:534`). The parser

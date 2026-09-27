@@ -4,6 +4,9 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
+	define: {
+		__BOARD_HARNESS__: JSON.stringify(process.env.BOARD_HARNESS === "1"),
+	},
 	test: {
 		include: ["tests/unit/**/*.test.ts"],
 		environment: "node",

@@ -61,6 +61,10 @@ The pin catalogue, the build that turns each pinned commit into a served
 wasm, and the ABI gate that rejects a mismatching build are described in
 [`pins.md`](pins.md).
 
+The chessground wrapper, the promotion picker, the evaluation bar and graph,
+the score conventions they share and the piece-set licence are described in
+[`board.md`](board.md).
+
 The vendored sources import each other with `.ts` extensions and use
 `Promise.withResolvers`, so `tsconfig.json` sets `allowImportingTsExtensions`
 and `rewriteRelativeImportExtensions` on top of SvelteKit's `esnext` lib. Its

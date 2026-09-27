@@ -19,6 +19,7 @@ export default defineConfig({
 	webServer: {
 		command: `npm run build && npm run preview -- --port ${port} --host 127.0.0.1`,
 		url: `http://127.0.0.1:${port}/analysis`,
+		env: { BOARD_HARNESS: "1" },
 		reuseExistingServer: !process.env.CI,
 		timeout: 120_000,
 	},

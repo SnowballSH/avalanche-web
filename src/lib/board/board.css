@@ -1,0 +1,39 @@
+.board > .cg-wrap {
+	width: 100%;
+	aspect-ratio: 1 / 1;
+	border-radius: var(--fui-radius-xs);
+}
+
+.cg-wrap coords {
+	font-family: var(--fui-font-mono);
+	font-size: 10px;
+	font-weight: 600;
+}
+
+cg-board square.selected {
+	background-color: color-mix(in srgb, var(--fui-accent) 55%, transparent);
+}
+
+cg-board square.last-move {
+	background-color: color-mix(in srgb, var(--fui-accent) 35%, transparent);
+}
+
+cg-board square.move-dest {
+	background: radial-gradient(
+		color-mix(in srgb, var(--fui-accent) 65%, transparent) 22%,
+		transparent 0
+	);
+}
+
+cg-board square.oc.move-dest {
+	background: radial-gradient(
+		transparent 0%,
+		transparent 80%,
+		color-mix(in srgb, var(--fui-accent) 45%, transparent) 80%
+	);
+}
+
+cg-board square.move-dest:hover,
+cg-board square.move-dest.hover {
+	background: color-mix(in srgb, var(--fui-accent) 35%, transparent);
+}

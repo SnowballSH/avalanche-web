@@ -40,6 +40,16 @@
 					}
 				}
 			}
+		},
+		{
+			"includes": ["src/lib/board/board.css"],
+			"linter": {
+				"rules": {
+					"correctness": {
+						"noUnknownTypeSelector": "off"
+					}
+				}
+			}
 		}
 	]
 }

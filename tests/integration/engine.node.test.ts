@@ -4,8 +4,10 @@ import { pathToFileURL } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { type EngineConnectionFactory, WorkerEngineHost } from "../../src/lib/engine/host";
 import type { EngineNotice, SearchInfo, UciSession } from "../../src/lib/engine/types";
+import { parseInfoLine } from "../../src/lib/engine/uci-parse";
 import type { PinEntry } from "../../src/lib/pins/types";
 import { startNodeClient } from "../../vendor/avalanche-web-abi1/src/node/client.ts";
+import { EngineTap } from "./helpers/engine-tap";
 
 const FIXTURE_PATH = process.env.AVALANCHE_FIXTURE_WASM
 	? pathToFileURL(process.env.AVALANCHE_FIXTURE_WASM)
@@ -24,23 +26,39 @@ const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 const UCI_MOVE = /^[a-h][1-8][a-h][1-8][qrbn]?$/;
 
-const rawLines: string[] = [];
+interface TappedNodeWorkers {
+	readonly connect: EngineConnectionFactory;
+	current(): EngineTap;
+}
 
-const connectNodeWorker: EngineConnectionFactory = async (_pin, handlers) => {
-	const client = await startNodeClient(FIXTURE_PATH, {
-		onLine: (line) => {
-			rawLines.push(line);
-			handlers.onLine(line);
-		},
-		onError: handlers.onFailure,
-	});
+function tappedNodeWorkers(): TappedNodeWorkers {
+	const taps: EngineTap[] = [];
 	return {
-		send: (command) => {
-			if (!client.closed) client.send(command);
+		connect: async (_pin, handlers) => {
+			const tap = new EngineTap(handlers.onLine);
+			taps.push(tap);
+			const client = await startNodeClient(FIXTURE_PATH, {
+				onLine: (line) => tap.receive(line),
+				onError: handlers.onFailure,
+			});
+			return {
+				send: (command) => {
+					if (!client.closed) client.send(command);
+				},
+				terminate: () => client.terminate(),
+			};
 		},
-		terminate: () => client.terminate(),
+		current: () => {
+			const tap = taps.at(-1);
+			if (!tap) throw new Error("No engine has connected yet");
+			return tap;
+		},
 	};
-};
+}
+
+const isInfoDepthLine = (line: string): boolean => line.startsWith("info depth");
+
+const ENGINE_LINE_TIMEOUT_MS = 10_000;
 
 async function firstInfo(infos: AsyncIterable<SearchInfo>): Promise<SearchInfo> {
 	for await (const info of infos) return info;
@@ -54,7 +72,8 @@ async function collect(infos: AsyncIterable<SearchInfo>): Promise<SearchInfo[]> 
 }
 
 describe("EngineHost against the real 9b7ee6f wasm", () => {
-	const host = new WorkerEngineHost(connectNodeWorker);
+	const workers = tappedNodeWorkers();
+	const host = new WorkerEngineHost(workers.connect);
 	const notices: EngineNotice[] = [];
 	let session: UciSession;
 
@@ -73,7 +92,7 @@ describe("EngineHost against the real 9b7ee6f wasm", () => {
 	});
 
 	it("reports the pin id as its version", () => {
-		expect(rawLines).toContain(`id name Avalanche ${pin.id}`);
+		expect(workers.current().lines).toContain(`id name Avalanche ${pin.id}`);
 	});
 
 	it("completes the handshake and applies Hash", () => {
@@ -108,6 +127,9 @@ describe("EngineHost against the real 9b7ee6f wasm", () => {
 	});
 
 	it("drops the superseded search's lines once the position changes", async () => {
+		const tap = workers.current();
+		await session.position(START_FEN, []);
+		const searchStart = tap.lines.length;
 		const stale = session.search({ infinite: true });
 		const staleInfos: SearchInfo[] = [];
 		const firstStale = Promise.withResolvers<void>();
@@ -121,27 +143,32 @@ describe("EngineHost against the real 9b7ee6f wasm", () => {
 		})();
 		await firstStale.promise;
 
-		const rawBeforeChange = rawLines.length;
-		await session.position(START_FEN, ["d2d4", "d7d5"]);
+		tap.hold();
+		await tap.arrival(isInfoDepthLine, tap.delivered, ENGINE_LINE_TIMEOUT_MS);
+		const changedAt = tap.delivered;
+		const change = session.position(START_FEN, ["d2d4", "d7d5"]);
+		tap.release();
+		await change;
 		await staleStream;
-		const deliveredBeforeChange = staleInfos.length;
-		const fresh = session.search({ depth: 6 });
-
 		const staleResult = await stale.result;
-		const freshInfos = await collect(fresh.info);
-		const freshResult = await fresh.result;
 
-		const rawAfterChange = rawLines.slice(rawBeforeChange);
-		const staleTail = rawAfterChange.slice(
+		const deliveredBeforeChange = tap.lines.slice(searchStart, changedAt);
+		const deliveredAfterChange = tap.lines.slice(changedAt);
+		const staleTail = deliveredAfterChange.slice(
 			0,
-			rawAfterChange.findIndex((l) => l.startsWith("bestmove")),
+			deliveredAfterChange.findIndex((line) => line.startsWith("bestmove")),
 		);
-		expect(staleTail.some((line) => line.startsWith("info depth"))).toBe(true);
+		expect(staleTail.some(isInfoDepthLine)).toBe(true);
 		expect(staleStreamEnded).toBe(true);
-		expect(staleInfos).toHaveLength(deliveredBeforeChange);
-		expect(staleInfos.every((info) => info.searchId === stale.searchId)).toBe(true);
+		expect(staleInfos).toEqual(
+			deliveredBeforeChange.flatMap((line) => parseInfoLine(line, stale.searchId) ?? []),
+		);
 		expect(staleResult.searchId).toBe(stale.searchId);
 		expect(staleResult.move).toMatch(UCI_MOVE);
+
+		const fresh = session.search({ depth: 6 });
+		const freshInfos = await collect(fresh.info);
+		const freshResult = await fresh.result;
 		expect(freshInfos.length).toBeGreaterThan(0);
 		expect(freshInfos.every((info) => info.searchId === fresh.searchId)).toBe(true);
 		expect(freshInfos.at(-1)?.depth).toBe(6);

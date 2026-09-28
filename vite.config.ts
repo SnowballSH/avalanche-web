@@ -25,6 +25,9 @@ export default defineConfig({
 	define: {
 		__BOARD_HARNESS__: JSON.stringify(process.env.BOARD_HARNESS === "1"),
 	},
+	build: {
+		assetsInlineLimit: 0,
+	},
 	test: {
 		include: ["tests/unit/**/*.test.ts"],
 		environment: "node",

@@ -57,9 +57,13 @@ For each pin, in catalogue order:
 2. `node scripts/check-abi.ts` compares the module's imports and exports,
    names and kinds, with `vendor/avalanche-web-abi1/abi.json` and fails the
    build on any difference.
-3. `zstd --ultra -22` and `gzip --best --no-name` write `avalanche.wasm.zst`
-   and `avalanche.wasm.gz` next to the wasm; Caddy serves them precompressed
-   and never compresses the wasm on the fly.
+3. `zstd -19 --zstd=wlog=23` and `gzip --best --no-name` write
+   `avalanche.wasm.zst` and `avalanche.wasm.gz` next to the wasm; Caddy serves
+   them precompressed and never compresses the wasm on the fly. The zstd window
+   stays at 8 MiB because browsers refuse larger windows in a `zstd`
+   `Content-Encoding` (RFC 9659; Chromium fails the fetch with
+   `ERR_ZSTD_WINDOW_SIZE_TOO_BIG`). `--ultra -22` gives a 32 MiB window for
+   this module and saved nothing measurable once capped.
 
 `node scripts/pins-catalogue.ts emit` then hashes each wasm and writes
 `<outdir>/engines/pins.json`. The whole of `<outdir>/engines` is recreated on

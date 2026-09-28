@@ -120,6 +120,24 @@ describe("createPlayStore", () => {
 				},
 			}),
 		],
+		...(
+			[
+				["a fractional increment", 2_000.5],
+				["a negative increment", -1],
+			] as const
+		).map(([label, incrementMs]) => [
+			label,
+			JSON.stringify({
+				...game,
+				setup: {
+					...game.setup,
+					settings: {
+						...game.setup.settings,
+						timeControl: { ...game.setup.settings.timeControl, incrementMs },
+					},
+				},
+			}),
+		]),
 		["moves that do not replay", JSON.stringify({ ...game, moves: ["e2e4", "e2e4"] })],
 		[
 			"a running clock for the side not to move",

@@ -62,6 +62,9 @@ const isInteger: Check = (value) => Number.isSafeInteger(value);
 
 const isPositiveInteger: Check = (value) => Number.isSafeInteger(value) && (value as number) > 0;
 
+const isNonNegativeInteger: Check = (value) =>
+	Number.isSafeInteger(value) && (value as number) >= 0;
+
 const isNonNegative: Check = (value) =>
 	typeof value === "number" && Number.isFinite(value) && value >= 0;
 
@@ -94,7 +97,7 @@ const isSettings = shape({
 		shape({ kind: literal("full") }),
 		shape({ kind: literal("elo"), elo: isInteger }),
 	),
-	timeControl: shape({ baseMs: isPositiveInteger, incrementMs: isNonNegative }),
+	timeControl: shape({ baseMs: isPositiveInteger, incrementMs: isNonNegativeInteger }),
 	engineLimit: oneOf(literal(null), isEngineLimit),
 	hashMb: isPositiveInteger,
 	threads: oneOf(literal(null), isPositiveInteger),

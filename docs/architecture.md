@@ -573,6 +573,37 @@ parameter (`FEN_QUERY_PARAM`), and the editor itself opens on
 `/editor?fen=…`, which the analysis page links to for the current position.
 Both links carry the normalised FEN.
 
+### The Engines page
+
+`src/routes/engines/+page.svelte` renders one `PinRow` per row of a
+`PinManager` (`src/lib/pins/pin-manager.ts`), which sits on the runtime's
+shared `PinStore` and memoised catalogue and publishes an immutable
+`PinManagerState`: the rows (`PinStore.list`, catalogue pins first, then the
+stale entries), the total from `usage()`, and the default pin from
+`getDefaultPin`, so a stored id the catalogue has retired shows the first pin
+as the default. Every download and delete ends with a fresh `list` and
+`usage`; a generation counter keeps an older listing from overwriting a newer
+one.
+
+The manager overlays its own download progress on the listed state. Each
+download it follows gets a progress record, and only the record currently
+held for that pin may report progress, set an error or clear the overlay. A
+delete during a download drops the record, so the row returns to "not
+downloaded" at once, while the store cancels the transfer, and the transfer's
+late `missing` rejection is ignored rather than shown; downloading again
+starts a new record. A listing that reports a download this manager did not
+start (the analysis page began it in the same tab) is joined through
+`PinStore.download`, which shares the in-flight transfer, so its progress
+keeps moving here.
+
+A failed download shows its message on the row. `QuotaExceededError` asks
+the user to delete versions on this page, while the analysis page's message
+points here. The page states that browsers may clear the storage (Safari after
+seven days without a visit) and never promises that a download is kept.
+
+A stale entry is deleted through `PinStore.delete(id)`, which removes every
+cache entry for that id.
+
 ### Local serving and the end-to-end tests
 
 `vite.config.ts` adds a middleware to both the dev and the preview server that
@@ -585,3 +616,7 @@ non-isolated one on 4174 for the refusal test. The engine tests need the pin
 built first (`scripts/build-pins.sh build-pins/out`, which CI runs before the
 e2e step). The clipboard tests replace `navigator.clipboard.writeText` with a
 recorder, since WebKit grants Playwright no clipboard permission.
+Playwright's WebKit drops Cache Storage when an ephemeral context reloads the
+page, so the stale pin test, which must reload with the pin still cached,
+runs in a persistent context (`launchPersistentContext` on a temporary
+profile) in both browsers.

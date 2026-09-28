@@ -6,12 +6,13 @@ import type { PinCatalogData } from "../../src/lib/pins/types";
 import { headerValues, type RawResponse, rawRequest } from "./helpers/raw-http";
 
 const IMMUTABLE = "public, max-age=31536000, immutable";
-const PAGES = ["/", "/analysis", "/editor", "/engines", "/play"] as const;
+const PAGES = ["/", "/analysis", "/editor", "/engines", "/licences", "/play"] as const;
 const DEEP_LINKS = [
 	"/analysis",
 	"/play?fen=8%2F8%2F8%2F8%2F8%2F8%2F8%2FK6k%20w%20-%20-%200%201",
 	"/engines",
 	"/editor",
+	"/licences",
 ];
 
 const HTTP_ZSTD_WINDOW_LOG_MAX = 23;

@@ -31,5 +31,6 @@ export default defineConfig({
 	test: {
 		include: ["tests/unit/**/*.test.ts"],
 		environment: "node",
+		server: { deps: { inline: [/\/node_modules\/[^?]+(\?raw|\/package\.json)$/] } },
 	},
 });

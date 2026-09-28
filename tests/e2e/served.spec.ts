@@ -10,6 +10,7 @@ const DEEP_LINKS = [
 	"/play?fen=8%2F8%2F8%2F8%2F8%2F8%2F8%2FK6k%20w%20-%20-%200%201",
 	"/engines",
 	"/editor",
+	"/licences",
 ];
 
 declare global {
@@ -28,7 +29,7 @@ const expectBooted = async (page: Page): Promise<void> => {
 
 test("the app boots under the served CSP without a single violation", async ({ page }) => {
 	const csp = await watchCsp(page);
-	for (const path of ["/analysis", "/engines", "/play", "/editor"]) {
+	for (const path of ["/analysis", "/engines", "/play", "/editor", "/licences"]) {
 		await page.goto(path);
 		await expectBooted(page);
 		expect(await csp.violations(), path).toEqual([]);
@@ -95,7 +96,7 @@ test("no request leaves the origin", async ({ page, baseURL }) => {
 			offOrigin.push(request.url());
 		}
 	});
-	for (const path of ["/", "/play", "/analysis", "/editor", "/engines"]) {
+	for (const path of ["/", "/play", "/analysis", "/editor", "/engines", "/licences"]) {
 		await page.goto(path);
 		await expectBooted(page);
 	}

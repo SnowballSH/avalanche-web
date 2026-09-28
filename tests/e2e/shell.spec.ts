@@ -30,3 +30,18 @@ test("the theme toggle switches the root theme attribute", async ({ page }) => {
 	await page.reload();
 	await expect(root).toHaveAttribute("data-theme", after);
 });
+
+test("the footer links to the GPL source and the licences page", async ({ page }) => {
+	await page.goto("/analysis");
+	const legal = page.getByRole("navigation", { name: "Legal" });
+	await expect(legal.getByRole("link", { name: "Source (GPL-3.0)" })).toHaveAttribute(
+		"href",
+		"https://github.com/SnowballSH/avalanche-web",
+	);
+	await legal.getByRole("link", { name: "Licences" }).click();
+	await expect(page).toHaveURL(/\/licences$/);
+	await expect(page.getByRole("heading", { level: 1, name: "Licences" })).toBeVisible();
+	const engine = page.locator('[data-testid="licence-notice"][data-notice-id="avalanche"]');
+	await engine.getByText("Licence text").click();
+	await expect(engine.locator("pre")).toContainText("Copyright (c) 2026 Yinuo Huang");
+});

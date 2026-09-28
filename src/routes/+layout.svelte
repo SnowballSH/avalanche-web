@@ -1,6 +1,7 @@
 <script lang="ts">
 import "../app.css";
 import Header from "$lib/shell/Header.svelte";
+import SiteFooter from "$lib/shell/SiteFooter.svelte";
 
 let { children } = $props();
 </script>
@@ -9,3 +10,4 @@ let { children } = $props();
 <main>
 	{@render children()}
 </main>
+<SiteFooter />

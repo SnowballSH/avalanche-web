@@ -98,3 +98,14 @@ test("the Engines page lists the pin and downloads it", async ({ page }) => {
 	await row.getByRole("button", { name: "Delete" }).click();
 	await expect(row.getByTestId("pin-state")).toHaveText("Not downloaded");
 });
+
+test("the licences page renders every notice from a deep link", async ({ page }) => {
+	await page.goto("/licences");
+	await expect(page.getByRole("heading", { level: 1, name: "Licences" })).toBeVisible();
+	for (const id of ["avalanche-web", "avalanche", "chessground", "chessops", "cburnett", "inter"]) {
+		await expect(
+			page.locator(`[data-testid="licence-notice"][data-notice-id="${id}"]`),
+		).toBeVisible();
+	}
+	await expect(page.getByRole("navigation", { name: "Legal" })).toBeVisible();
+});

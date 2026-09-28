@@ -43,6 +43,23 @@ self-hosted through npm.
   used only in the template would otherwise be reported.
 - `npm run format` runs `biome check --write`, so that formatting and import
   order are fixed by the same command that `npm run lint` checks.
+- Vitest externalises `node_modules`, which breaks `?raw` imports of licence
+  files and JSON imports of `package.json` there, so the unit config inlines
+  exactly those two import shapes.
+
+## Licences
+
+The footer links to the GPL source and to `/licences`, a prerendered page
+built from `src/lib/licences/notices.ts`. Every notice's licence text and
+version is imported from the shipped package's own `LICENSE` and
+`package.json` in `node_modules`, or from `vendor/avalanche-web-abi1/LICENSE`
+for the engine and its bindings, so a dependency bump updates the page. The
+list covers what reaches the browser: the direct dependencies plus the
+packages a sourcemap build shows in the client bundle (Svelte, SvelteKit,
+devalue, Tailwind's generated CSS, class-variance-authority, clsx and
+`@badrap/result`). `tests/unit/licences.test.ts` fails when a runtime
+dependency has no notice or a notice's text does not match its declared
+licence.
 
 ## Vendored engine bindings
 
@@ -494,7 +511,12 @@ The controller owns stopping its own search when its lease is suspended: it
 listens to the lease's `onStateChange`, and on `suspended` stops the search,
 forgets the session and shows "paused"; on `active` it reconnects and restarts
 the search on the current node. Switching the engine off stops the search and
-releases the lease.
+releases the lease, and so does leaving the page (`dispose`); both also cancel
+the page's `EngineConnector`, whose generation bump makes a connection still
+downloading or starting reject as superseded instead of starting a session for
+a page that is gone. Every successful pin download, from this page, Play or the
+Engines page, asks the browser to make the site's storage persistent
+(`navigator.storage.persist()`); a refusal changes nothing.
 
 The best line (`multipv 1`, exact score) is stored on its node with `setEval`
 when it is at least as deep as the stored one; PGN export with evaluations and

@@ -32,6 +32,15 @@ shapes), `premovable`, `chess960` and `coordinates`. Callbacks: `onmove(uci)`,
 component exports `playPremove()` and `cancelPremove()` for the play
 controller.
 
+The board editor passes `editing` (`{ onpress, onchange }`) instead of
+`movable`. The board then moves pieces freely, with no rules, no castling
+rook hop and no `onmove`, removes a piece dragged off the board, and reports
+the resulting piece placement through `onchange` after every change. A
+left press on a square is first offered to `onpress` in the capture phase;
+when it returns `true` (a piece or eraser tool is active), the press is
+stopped before chessground sees it, so placing a piece on an occupied square
+never starts a drag of the piece underneath.
+
 The parent supplies the destinations with `legalDests(fen, chess960)` from
 `moves.ts`, which wraps chessops' `chessgroundDests`. In standard chess the
 map carries both castling representations, so the user can drag the king two

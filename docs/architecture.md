@@ -551,6 +551,28 @@ shows an error and keeps the position.
 a FEN validated by `parseFen` (the normalised form is echoed), or an FRC
 Scharnagl number 0–959 typed or drawn with `randomFrc`.
 
+### The board editor
+
+`src/routes/editor/+page.svelte` edits an `EditorState`
+(`src/lib/editor/editor-state.ts`): the piece placement, the side to move,
+the four castling flags, the en passant square and the move counters, all
+immutable, with pure functions for each edit. Nothing is validated while the
+user edits, so an illegal board (no kings, a pawn on the back rank) can be
+loaded, shown and fixed. `validateEditor` is the only gate: an en passant
+square that no double pawn push could have produced is refused with a reason,
+and everything else goes through `parseFen`, whose message becomes the
+reason (including the Chess960-castling refusal). A position `parseFen`
+accepts but normalises (a castling right without its rook, an en passant
+square no pawn can capture on) is shown with the FEN it will open as.
+Analyse and Play are disabled while the position is invalid and describe
+themselves with the reason.
+
+The editor opens `/analysis#fen=…` through `analysisLink` and
+`/play?fen=…`; the play page reads its start position from the `fen` query
+parameter (`FEN_QUERY_PARAM`), and the editor itself opens on
+`/editor?fen=…`, which the analysis page links to for the current position.
+Both links carry the normalised FEN.
+
 ### Local serving and the end-to-end tests
 
 `vite.config.ts` adds a middleware to both the dev and the preview server that

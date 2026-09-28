@@ -112,6 +112,24 @@ describe("headerPolicy", () => {
 		expect(rejection(() => headerPolicy(directives, []))).toMatch(/no HTML page/);
 	});
 
+	it("rejects a build whose pages yield no boot-script hash, since script-src would allow no inline boot", () => {
+		const unhashed = kitMeta("boot()").replace(/ 'sha256-[^']+'/, "");
+		const withoutInlineScript = {
+			path: "static.html",
+			html: `<html><head><meta http-equiv="content-security-policy" content="${unhashed}"></head></html>`,
+		};
+		expect(rejection(() => headerPolicy(directives, [withoutInlineScript]))).toMatch(
+			/no boot-script hash/,
+		);
+	});
+
+	it("rejects a page with an inline script whose meta lists no hash at all", () => {
+		const unhashed = kitMeta("boot()").replace(/ 'sha256-[^']+'/, "");
+		expect(rejection(() => headerPolicy(directives, [page("boot()", unhashed)]))).toMatch(
+			/inline script/,
+		);
+	});
+
 	it("accepts the repository's own kit.csp configuration", () => {
 		const configured = config.kit?.csp?.directives as CspDirectives;
 		const meta = kitMeta("boot()")

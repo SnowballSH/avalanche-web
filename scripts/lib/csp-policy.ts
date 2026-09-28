@@ -100,6 +100,9 @@ function pageHashes(directives: CspDirectives, page: BuiltPage): string[] {
 export function headerPolicy(directives: CspDirectives, pages: readonly BuiltPage[]): string {
 	if (pages.length === 0) throw new CspPolicyError("the build has no HTML page");
 	const hashes = [...new Set(pages.flatMap((page) => pageHashes(directives, page)))].sort();
+	if (hashes.length === 0) {
+		throw new CspPolicyError("the build's pages carry no boot-script hash for script-src");
+	}
 	return Object.entries(directives)
 		.map(([name, sources]) =>
 			[name, ...sources.map(quoteSource), ...(name === "script-src" ? hashes : [])].join(" "),

@@ -1,6 +1,8 @@
 import { expect, type Page, test } from "@playwright/test";
 import { PIN_CACHE_NAME, pinCacheKey } from "../../src/lib/pins/cache-key";
+import type { createPinStore } from "../../src/lib/pins/store";
 import type { PinCatalogData, PinEntry } from "../../src/lib/pins/types";
+import { bundlePinStore } from "./helpers/pin-store-bundle";
 
 const DEEP_LINKS = [
 	"/analysis",
@@ -12,6 +14,7 @@ const DEEP_LINKS = [
 declare global {
 	interface Window {
 		cspViolations: string[];
+		AvalanchePinStore: { createPinStore: typeof createPinStore };
 	}
 }
 
@@ -62,39 +65,40 @@ test("reloading a deep link serves the app, not a 404", async ({ page }) => {
 	}
 });
 
-test("the browser downloads the pin byte-exact and Cache Storage keeps the Content-Length the PinStore writes", async ({
+test("the real PinStore downloads the pin byte-exact, and Cache Storage keeps the Content-Length it writes", async ({
 	page,
 }) => {
+	await page.addInitScript({ content: await bundlePinStore() });
 	await page.goto("/engines");
 	const { pins } = (await (await page.request.get("/engines/pins.json")).json()) as PinCatalogData;
 	const pin = pins[0] as PinEntry;
 	const stored = await page.evaluate(
 		async ({ pin, cacheName, key }) => {
-			const response = await fetch(`/engines/${pin.id}/avalanche.wasm`);
-			const bytes = new Uint8Array(await response.arrayBuffer());
-			const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
-			const sha256 = [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-			const cache = await caches.open(cacheName);
-			await cache.put(
-				key,
-				new Response(bytes, {
-					headers: { "Content-Type": "application/wasm", "Content-Length": String(bytes.length) },
-				}),
+			const store = window.AvalanchePinStore.createPinStore(
+				caches,
+				fetch.bind(window),
+				navigator.storage,
 			);
-			const cached = await cache.match(key);
-			await caches.delete(cacheName);
-			return {
-				bytes: bytes.length,
-				sha256,
+			await store.download(pin);
+			const [status] = await store.list([pin]);
+			const cached = await (await caches.open(cacheName)).match(key);
+			const served = await store.get(pin);
+			const result = {
+				state: status?.state.kind ?? null,
 				contentLength: cached?.headers.get("Content-Length") ?? null,
+				usedBytes: (await store.usage()).usedBytes,
+				bytes: (await served.arrayBuffer()).byteLength,
 			};
+			await store.delete(pin.id);
+			return result;
 		},
 		{ pin, cacheName: PIN_CACHE_NAME, key: pinCacheKey(pin) },
 	);
 	expect(stored).toEqual({
-		bytes: pin.bytes,
-		sha256: pin.sha256,
+		state: "ready",
 		contentLength: String(pin.bytes),
+		usedBytes: pin.bytes,
+		bytes: pin.bytes,
 	});
 });
 

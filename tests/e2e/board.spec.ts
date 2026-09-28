@@ -2,6 +2,8 @@ import { expect, type Page, test } from "@playwright/test";
 
 type Orientation = "white" | "black";
 
+const CASTLING_FEN = "r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1";
+
 const squareCentre = async (page: Page, key: string, orientation: Orientation) => {
 	const box = await page.locator("cg-board").boundingBox();
 	if (!box) throw new Error("the board has no box");
@@ -65,6 +67,9 @@ test("flip turns the board around", async ({ page }) => {
 
 test("a right-click drag draws an arrow and reports the shape", async ({ page }) => {
 	await page.getByLabel("Position", { exact: true }).selectOption("castling");
+	await expect(page.getByTestId("fen")).toHaveText(CASTLING_FEN);
+	await expect(page.locator("cg-board piece")).toHaveCount(22);
+	await expect(page.locator("cg-board piece.anim, cg-board piece.fading")).toHaveCount(0);
 	const arrows = page.locator(".cg-shapes line");
 	await expect(arrows).toHaveCount(0);
 	const start = await squareCentre(page, "e2", "white");

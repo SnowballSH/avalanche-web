@@ -1,4 +1,12 @@
-import { type Castles, Chess, COLORS, isNormal, type Move, type Position } from "chessops";
+import {
+	type Castles,
+	Chess,
+	COLORS,
+	isNormal,
+	type Move,
+	type Position,
+	type Setup,
+} from "chessops";
 import { castlingSide, normalizeMove } from "chessops/chess";
 import { makeFen, parseFen as parseSetup } from "chessops/fen";
 import { kingCastlesTo, makeUci, squareFile } from "chessops/util";
@@ -84,13 +92,19 @@ export interface ParseFenOptions {
 	readonly chess960?: boolean;
 }
 
-export const parseFen = (text: string, options?: ParseFenOptions): ImportResult<ParsedFen> => {
+export const parseFenSetup = (text: string): ImportResult<Setup> => {
 	const oversized = importSizeError(text);
 	if (oversized) return { ok: false, error: oversized };
 	const trimmed = text.trim();
 	if (trimmed.length === 0) return invalidFen("The FEN is empty");
 	const setup = parseSetup(trimmed);
 	if (setup.isErr) return invalidFen(`Invalid FEN: ${describeFenError(setup.error.message)}`);
+	return { ok: true, value: setup.value };
+};
+
+export const parseFen = (text: string, options?: ParseFenOptions): ImportResult<ParsedFen> => {
+	const setup = parseFenSetup(text);
+	if (!setup.ok) return setup;
 	const position = Chess.fromSetup(setup.value);
 	if (position.isErr) {
 		return invalidFen(`Illegal position: ${describeSetupError(position.error.message)}`);

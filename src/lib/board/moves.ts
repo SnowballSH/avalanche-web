@@ -44,3 +44,8 @@ export interface BoardMovable {
 	readonly color: Color | "both";
 	readonly dests: Dests;
 }
+
+export interface BoardEditing {
+	readonly onpress: (square: Key) => boolean;
+	readonly onchange: (placement: string) => void;
+}

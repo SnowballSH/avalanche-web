@@ -559,6 +559,59 @@ shows an error and keeps the position.
 a FEN validated by `parseFen` (the normalised form is echoed), or an FRC
 Scharnagl number 0–959 typed or drawn with `randomFrc`.
 
+### The board editor
+
+`src/routes/editor/+page.svelte` edits an `EditorState`
+(`src/lib/editor/editor-state.ts`): the piece placement, the side to move,
+the four castling flags, the en passant square and the move counters, all
+immutable, with pure functions for each edit. Nothing is validated while the
+user edits, so an illegal board (no kings, a pawn on the back rank) can be
+loaded, shown and fixed. `validateEditor` is the only gate: an en passant
+square that no double pawn push could have produced is refused with a reason,
+and everything else goes through `parseFen`, whose message becomes the
+reason (including the Chess960-castling refusal). A position `parseFen`
+accepts but normalises (a castling right without its rook, an en passant
+square no pawn can capture on) is shown with the FEN it will open as.
+Analyse and Play are disabled while the position is invalid and describe
+themselves with the reason.
+
+The editor opens `/analysis#fen=…` through `analysisLink` and
+`/play?fen=…`; the play page reads its start position from the `fen` query
+parameter (`FEN_QUERY_PARAM`), and the editor itself opens on
+`/editor?fen=…`, which the analysis page links to for the current position.
+Both links carry the normalised FEN.
+
+### The Engines page
+
+`src/routes/engines/+page.svelte` renders one `PinRow` per row of a
+`PinManager` (`src/lib/pins/pin-manager.ts`), which sits on the runtime's
+shared `PinStore` and memoised catalogue and publishes an immutable
+`PinManagerState`: the rows (`PinStore.list`, catalogue pins first, then the
+stale entries), the total from `usage()`, and the default pin from
+`getDefaultPin`, so a stored id the catalogue has retired shows the first pin
+as the default. Every download and delete ends with a fresh `list` and
+`usage`; a generation counter keeps an older listing from overwriting a newer
+one.
+
+The manager overlays its own download progress on the listed state. Each
+download it follows gets a progress record, and only the record currently
+held for that pin may report progress, set an error or clear the overlay. A
+delete during a download drops the record, so the row returns to "not
+downloaded" at once, while the store cancels the transfer, and the transfer's
+late `missing` rejection is ignored rather than shown; downloading again
+starts a new record. A listing that reports a download this manager did not
+start (the analysis page began it in the same tab) is joined through
+`PinStore.download`, which shares the in-flight transfer, so its progress
+keeps moving here.
+
+A failed download shows its message on the row. `QuotaExceededError` asks
+the user to delete versions on this page, while the analysis page's message
+points here. The page states that browsers may clear the storage (Safari after
+seven days without a visit) and never promises that a download is kept.
+
+A stale entry is deleted through `PinStore.delete(id)`, which removes every
+cache entry for that id.
+
 ### Local serving and the end-to-end tests
 
 `vite.config.ts` adds the middleware from `scripts/local-serving.ts` to both
@@ -573,6 +626,10 @@ for every test, and a non-isolated one on the next port for the refusal test. Th
 built first (`scripts/build-pins.sh build-pins/out`, which CI runs before the
 e2e step). The clipboard tests replace `navigator.clipboard.writeText` with a
 recorder, since WebKit grants Playwright no clipboard permission.
+Playwright's WebKit drops Cache Storage when an ephemeral context reloads the
+page, so the stale pin test, which must reload with the pin still cached,
+runs in a persistent context (`launchPersistentContext` on a temporary
+profile) in both browsers.
 
 ## Play vs Avalanche
 

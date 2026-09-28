@@ -1,5 +1,5 @@
 <script lang="ts">
-import { Button, Callout, Panel } from "foundationui/svelte";
+import { Button, Callout, Link, Panel } from "foundationui/svelte";
 import { onMount } from "svelte";
 import { AnalysisController } from "$lib/analysis/controller";
 import EnginePanel from "$lib/analysis/EnginePanel.svelte";
@@ -15,6 +15,7 @@ import { bestMoveArrow } from "$lib/board/shapes";
 import { positionFromFen } from "$lib/chess/fen";
 import { importPgn } from "$lib/chess/pgn";
 import type { Color, StartPosition } from "$lib/chess/types";
+import { editorLink } from "$lib/editor/editor-state";
 import { hashChoices as hashChoicesFor } from "$lib/engine/memory";
 import type { EngineScheduler, UciSession } from "$lib/engine/types";
 import { getDefaultPin } from "$lib/pins/default-pin";
@@ -278,6 +279,7 @@ onMount(() => {
 			<span class="text-xs text-ink-muted">FEN</span>
 			<input class="fen" readonly value={fen} data-testid="current-fen" />
 		</label>
+		<Link href={editorLink(fen)} class="text-sm">Edit this position in the board editor</Link>
 		{#if graphScores.length > 1}
 			<EvalGraph scores={graphScores} current={graphCursor} onselect={selectGraphPly} />
 		{/if}

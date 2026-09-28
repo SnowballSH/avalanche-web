@@ -11,7 +11,14 @@ import "./board.css";
 import { untrack } from "svelte";
 import type { Color } from "$lib/chess/types";
 import type { Fen, UciMove } from "$lib/engine/types";
-import { type BoardMovable, isPromotion, moveUci, type PromotionRole, turnOf } from "./moves";
+import {
+	type BoardEditing,
+	type BoardMovable,
+	isPromotion,
+	moveUci,
+	type PromotionRole,
+	turnOf,
+} from "./moves";
 import PromotionPicker from "./PromotionPicker.svelte";
 import { lastMoveKeys } from "./shapes";
 
@@ -19,6 +26,7 @@ interface Props {
 	fen: Fen;
 	orientation?: Color;
 	movable?: BoardMovable;
+	editing?: BoardEditing;
 	lastMove?: UciMove | null;
 	check?: boolean;
 	shapes?: readonly DrawShape[];
@@ -35,6 +43,7 @@ let {
 	fen,
 	orientation = "white",
 	movable,
+	editing,
 	lastMove = null,
 	check = false,
 	shapes = [],
@@ -64,6 +73,12 @@ const positionConfig = (): Config => ({
 });
 
 const movableConfig = (): Config => {
+	if (editing) {
+		return {
+			movable: { color: "both", free: true, dests: new Map() },
+			premovable: { enabled: false },
+		};
+	}
 	const active = movable !== undefined && (movable.color === "both" || movable.color === turn);
 	return {
 		movable: {
@@ -84,6 +99,7 @@ const emitMove = (orig: Key, dest: Key, role?: PromotionRole) => {
 };
 
 const afterMove = (orig: Key, dest: Key, metadata: MoveMetadata) => {
+	if (editing) return;
 	if (!isPromotion(fen, orig, dest)) {
 		emitMove(orig, dest);
 	} else if (metadata.premove) {
@@ -117,7 +133,10 @@ const initialConfig = (): Config => {
 		orientation,
 		coordinates,
 		disableContextMenu: true,
-		movable: { ...movableState, free: false, events: { after: afterMove } },
+		movable: { ...movableState, free: editing !== undefined, events: { after: afterMove } },
+		draggable: { deleteOnDropOff: editing !== undefined },
+		autoCastle: editing === undefined,
+		events: { change: () => editing?.onchange(api?.getFen() ?? "") },
 		premovable: {
 			...premovableState,
 			events: {
@@ -132,6 +151,21 @@ const initialConfig = (): Config => {
 	};
 };
 
+const pointOf = (event: MouseEvent | TouchEvent): [number, number] | undefined => {
+	if (!("touches" in event)) return [event.clientX, event.clientY];
+	const touch = event.touches[0];
+	return touch ? [touch.clientX, touch.clientY] : undefined;
+};
+
+const pressSquare = (event: MouseEvent | TouchEvent) => {
+	if (!editing || ("button" in event && event.button !== 0)) return;
+	const point = pointOf(event);
+	const square = point && api?.getKeyAtDomPos(point);
+	if (!square || !editing.onpress(square)) return;
+	event.preventDefault();
+	event.stopPropagation();
+};
+
 $effect(() => {
 	if (!root) return;
 	const element = root;
@@ -141,7 +175,12 @@ $effect(() => {
 		document.body.dispatchEvent(new Event("chessground.resize")),
 	);
 	resize.observe(element);
+	const pressOptions = { capture: true, passive: false } as const;
+	element.addEventListener("mousedown", pressSquare, pressOptions);
+	element.addEventListener("touchstart", pressSquare, pressOptions);
 	return () => {
+		element.removeEventListener("mousedown", pressSquare, pressOptions);
+		element.removeEventListener("touchstart", pressSquare, pressOptions);
 		resize.disconnect();
 		board.destroy();
 		api = undefined;

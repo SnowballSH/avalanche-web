@@ -4,14 +4,17 @@ import type { StartPosition } from "$lib/chess/types";
 import type { EngineCapabilities } from "$lib/engine/types";
 import type { PinEntry, PinId } from "$lib/pins/types";
 import StartPositionPicker from "$lib/shared/StartPositionPicker.svelte";
+import type { LinkedStart } from "$lib/shared/start-link";
 import {
 	CUSTOM_TIME_CONTROL,
 	customTimeControl,
 	DEFAULT_ELO,
 	DEFAULT_TIME_CONTROL,
 	ENGINE_LIMIT_LABELS,
+	ENGINE_LIMIT_MAX,
 	TIME_CONTROL_PRESETS,
 	timeControlLabel,
+	withinEngineLimit,
 } from "./setup";
 import type { EngineLimitKind, PlaySettings, SideChoice } from "./types";
 
@@ -24,6 +27,8 @@ interface Props {
 	capabilities: EngineCapabilities | null;
 	download: number | null;
 	probeError: string | null;
+	initialStart: LinkedStart | null;
+	onclose: () => void;
 	onprobe: (pinId: PinId, hashMb: number) => void;
 	onstart: (settings: PlaySettings) => void;
 }
@@ -37,6 +42,8 @@ let {
 	capabilities,
 	download,
 	probeError,
+	initialStart,
+	onclose,
 	onprobe,
 	onstart,
 }: Props = $props();
@@ -77,11 +84,6 @@ $effect(() => {
 	if (open && selectedPin !== null) onprobe(selectedPin, selectedHash);
 });
 
-const parsePositive = (text: string): number | null => {
-	const value = Number(text.trim());
-	return Number.isSafeInteger(value) && value > 0 ? value : null;
-};
-
 const resolveTimeControl = () => {
 	if (timeControl !== CUSTOM_TIME_CONTROL) {
 		return TIME_CONTROL_PRESETS.find((preset) => timeControlLabel(preset) === timeControl) ?? null;
@@ -91,10 +93,10 @@ const resolveTimeControl = () => {
 
 const resolveLimit = () => {
 	if (limitKind === "none") return { ok: true as const, limit: null };
-	const value = parsePositive(limitValue);
-	return value === null
-		? { ok: false as const }
-		: { ok: true as const, limit: { kind: limitKind, value } };
+	const value = Number(limitValue.trim());
+	return withinEngineLimit(limitKind, value)
+		? { ok: true as const, limit: { kind: limitKind, value } }
+		: { ok: false as const };
 };
 
 const start = (position: StartPosition) => {
@@ -110,7 +112,8 @@ const start = (position: StartPosition) => {
 	}
 	const engineLimit = resolveLimit();
 	if (!engineLimit.ok) {
-		error = `Enter a positive whole number for the ${ENGINE_LIMIT_LABELS[limitKind as EngineLimitKind].toLowerCase()} limit.`;
+		const kind = limitKind as EngineLimitKind;
+		error = `Enter a whole number from 1 to ${ENGINE_LIMIT_MAX[kind]} for the ${ENGINE_LIMIT_LABELS[kind].toLowerCase()} limit.`;
 		return;
 	}
 	open = false;
@@ -128,7 +131,13 @@ const start = (position: StartPosition) => {
 };
 </script>
 
-<Dialog bind:open title="New game" description="Play Avalanche in your browser." size="md">
+<Dialog
+	bind:open
+	title="New game"
+	description="Play Avalanche in your browser."
+	size="md"
+	{onclose}
+>
 	<div class="setup" data-testid="play-setup">
 		<fieldset class="row">
 			<legend class="label">Your side</legend>
@@ -279,7 +288,7 @@ const start = (position: StartPosition) => {
 			<Callout tone="warn" role="alert">{error}</Callout>
 		{/if}
 
-		<StartPositionPicker onselect={start} actionLabel="Start game" />
+		<StartPositionPicker onselect={start} actionLabel="Start game" initial={initialStart} />
 	</div>
 </Dialog>
 

@@ -1,5 +1,7 @@
-import { readFile } from "node:fs/promises";
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { type BrowserType, expect, type Locator, type Page, test } from "@playwright/test";
 import { Chess } from "chessops/chess";
 import { parseFen } from "chessops/fen";
 import { makeSquare } from "chessops/util";
@@ -19,8 +21,21 @@ const gamePhase = (page: Page) => page.getByRole("region", { name: "Game" });
 
 const result = (page: Page) => page.getByTestId("play-result");
 
-const openSetup = async (page: Page) => {
-	await page.goto("/play");
+const persistentContext = async (browserType: BrowserType, baseURL: string | undefined) => {
+	if (baseURL === undefined) throw new Error("the Playwright config sets no baseURL");
+	const directory = await mkdtemp(join(tmpdir(), "avalanche-play-e2e-"));
+	const context = await browserType.launchPersistentContext(directory, { baseURL });
+	return {
+		context,
+		async [Symbol.asyncDispose]() {
+			await context.close();
+			await rm(directory, { recursive: true, force: true });
+		},
+	};
+};
+
+const openSetup = async (page: Page, path = "/play") => {
+	await page.goto(path);
 	const dialog = setupDialog(page);
 	await expect(dialog).toBeVisible();
 	await expect(dialog.getByTestId("setup-engine-status")).toHaveText("Engine ready", {
@@ -172,7 +187,9 @@ test("an FRC random start downloads a PGN with its result, Variant and FEN", asy
 	expect(pgn).toMatch(/0-1\n$/);
 });
 
-test("a game in progress resumes after a reload", async ({ page, browserName }) => {
+test("a game in progress resumes after a reload", async ({ browserName, playwright, baseURL }) => {
+	await using storage = await persistentContext(playwright[browserName], baseURL);
+	const page = await storage.context.newPage();
 	const dialog = await openSetup(page);
 	await dialog.getByLabel("White", { exact: true }).check();
 	await dialog.getByLabel("Engine limit per move").selectOption("nodes");
@@ -186,11 +203,69 @@ test("a game in progress resumes after a reload", async ({ page, browserName }) 
 	await expect(setupDialog(page)).toBeHidden();
 	await expect(playFen(page)).toHaveValue(fen);
 	await expect(page.getByTestId("play-moves")).toContainText("e4");
-	test.skip(
-		browserName === "webkit",
-		"Playwright's WebKit empties Cache Storage on navigation and drops the re-downloaded pin, so the engine cannot restart after a reload there",
-	);
 	await expect(gamePhase(page)).toHaveAttribute("data-phase", "playing", {
 		timeout: ENGINE_TIMEOUT,
 	});
+});
+
+test("the editor's Play link starts the game from its position", async ({ page }) => {
+	const fen = "4k3/8/8/8/8/8/8/4K2R w K - 0 1";
+	await page.goto(`/editor?${new URLSearchParams({ fen })}`);
+	await page.getByRole("button", { name: "Play from here" }).click();
+	const dialog = setupDialog(page);
+	await expect(dialog).toBeVisible();
+	await expect(page).toHaveURL(/\/play$/);
+	const picker = dialog.getByRole("form", { name: "Start position" });
+	await expect(picker.getByLabel("FEN", { exact: true })).toBeChecked();
+	await expect(picker.getByLabel("Start FEN")).toHaveValue(fen);
+	await expect(dialog.getByTestId("setup-engine-status")).toHaveText("Engine ready", {
+		timeout: ENGINE_TIMEOUT,
+	});
+	await startGame(page, dialog);
+	await expect(playFen(page)).toHaveValue(fen);
+});
+
+test("an invalid fen parameter shows the picker's error and keeps the standard start", async ({
+	page,
+}) => {
+	const dialog = await openSetup(page, "/play?fen=not%2Fa%2Ffen");
+	const picker = dialog.getByRole("form", { name: "Start position" });
+	await expect(picker.getByRole("alert")).toContainText("The linked position is invalid");
+	await expect(picker.getByLabel("Standard", { exact: true })).toBeChecked();
+	await startGame(page, dialog);
+	await expect(playFen(page)).toHaveValue(
+		"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+	);
+});
+
+test("a fen link keeps the saved game, which resumes when the setup is closed", async ({
+	page,
+}) => {
+	const dialog = await openSetup(page);
+	await startGame(page, dialog);
+	await drag(page, "e2", "e4");
+	await expect(page.getByTestId("play-moves")).toContainText("e4");
+
+	await page.goto(`/play?${new URLSearchParams({ fen: "4k3/8/8/8/8/8/8/4K2R w K - 0 1" })}`);
+	const linked = setupDialog(page);
+	await expect(linked.getByLabel("Start FEN")).toHaveValue("4k3/8/8/8/8/8/8/4K2R w K - 0 1");
+	await page.keyboard.press("Escape");
+	await expect(linked).toBeHidden();
+	await expect(page.getByTestId("play-moves")).toContainText("e4");
+});
+
+test("a refused analysis handoff is reported and the page stays", async ({ page }) => {
+	await page.addInitScript(() => {
+		const setItem = Storage.prototype.setItem;
+		Storage.prototype.setItem = function (this: Storage, key: string, value: string) {
+			if (this === window.sessionStorage) throw new DOMException("blocked", "SecurityError");
+			setItem.call(this, key, value);
+		};
+	});
+	const dialog = await openSetup(page);
+	await startGame(page, dialog);
+	await page.getByRole("button", { name: "Resign" }).click();
+	await page.getByRole("button", { name: "Analyse this game" }).click();
+	await expect(page.getByTestId("handoff-error")).toContainText("Download the PGN");
+	await expect(page).toHaveURL(/\/play$/);
 });

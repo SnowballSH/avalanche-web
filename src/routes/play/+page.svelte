@@ -1,12 +1,13 @@
 <script lang="ts">
 import { Callout } from "foundationui/svelte";
 import { onMount } from "svelte";
-import { goto } from "$app/navigation";
+import { goto, replaceState } from "$app/navigation";
 import Board from "$lib/board/Board.svelte";
 import EvalBar from "$lib/board/EvalBar.svelte";
 import { legalDests } from "$lib/board/moves";
 import { positionFromFen } from "$lib/chess/fen";
 import type { Color } from "$lib/chess/types";
+import { FEN_QUERY_PARAM } from "$lib/editor/editor-state";
 import { hashChoices as hashChoicesFor } from "$lib/engine/memory";
 import type { EngineCapabilities, EngineScheduler } from "$lib/engine/types";
 import { getDefaultPin } from "$lib/pins/default-pin";
@@ -15,6 +16,7 @@ import { type EngineConnector, PlayController } from "$lib/play/controller";
 import GamePanel from "$lib/play/GamePanel.svelte";
 import { browserPlayStore } from "$lib/play/persist";
 import SetupDialog from "$lib/play/SetupDialog.svelte";
+import type { PlaySettings } from "$lib/play/types";
 import { handOffToAnalysis } from "$lib/shared/analysis-handoff";
 import {
 	browserEngineRuntime,
@@ -24,6 +26,7 @@ import {
 	isCrossOriginIsolated,
 } from "$lib/shared/engine-runtime";
 import { saveTextFile } from "$lib/shared/save-file";
+import { type LinkedStart, startFromLink } from "$lib/shared/start-link";
 
 const CLOCK_REFRESH_MS = 100;
 
@@ -45,6 +48,9 @@ let setupOpen = $state(false);
 let flipped = $state(false);
 let now = $state(0);
 let board = $state<ReturnType<typeof Board>>();
+let linkedStart = $state.raw<LinkedStart | null>(null);
+let handoffError = $state<string | null>(null);
+let resumeAfterSetup = false;
 
 const connect: EngineConnector = async (pinId, options) => {
 	const runtime = browserEngineRuntime();
@@ -69,7 +75,9 @@ const controller = new PlayController({
 	scheduler,
 	connect,
 	now: () => performance.now(),
-	store: browserPlayStore(),
+	store: browserPlayStore({
+		hashChoices: hashChoicesFor(typeof navigator === "undefined" ? undefined : deviceMemoryGb()),
+	}),
 	saveFile: saveTextFile,
 });
 
@@ -134,13 +142,29 @@ const refresh = () => {
 	now = performance.now();
 };
 
+const setupClosed = () => {
+	if (!resumeAfterSetup) return;
+	resumeAfterSetup = false;
+	if (view.phase === "idle") controller.resume();
+};
+
+const startGame = (settings: PlaySettings) => {
+	resumeAfterSetup = false;
+	void controller.start(settings);
+};
+
 const openSetup = () => {
 	probeKey = "";
 	setupOpen = true;
 };
 
 const analyse = async () => {
-	handOffToAnalysis(controller.toAnalysis());
+	if (!handOffToAnalysis(controller.toAnalysis())) {
+		handoffError =
+			"This browser would not hand the game to the analysis board. Download the PGN and import it there instead.";
+		return;
+	}
+	handoffError = null;
 	await goto("/analysis");
 };
 
@@ -167,7 +191,17 @@ onMount(() => {
 			.catch((error: unknown) => {
 				probeError = engineErrorMessage(error);
 			});
-		if (!controller.resume()) setupOpen = true;
+		const linked = startFromLink(window.location.search);
+		if (linked) {
+			linkedStart = linked;
+			resumeAfterSetup = true;
+			setupOpen = true;
+			const url = new URL(window.location.href);
+			url.searchParams.delete(FEN_QUERY_PARAM);
+			replaceState(url, {});
+		} else if (!controller.resume()) {
+			setupOpen = true;
+		}
 	}
 	const timer = setInterval(refresh, CLOCK_REFRESH_MS);
 	const onVisibility = () => {
@@ -206,6 +240,9 @@ onMount(() => {
 					headers.
 				</p>
 			</Callout>
+		{/if}
+		{#if handoffError}
+			<Callout tone="warn" role="alert" data-testid="handoff-error">{handoffError}</Callout>
 		{/if}
 		{#if hashNotice}
 			<Callout tone="info" role="status">{hashNotice}</Callout>
@@ -268,8 +305,10 @@ onMount(() => {
 		{capabilities}
 		{download}
 		{probeError}
+		initialStart={linkedStart}
+		onclose={setupClosed}
 		onprobe={(pinId, hash) => void probe(pinId, hash)}
-		onstart={(settings) => void controller.start(settings)}
+		onstart={startGame}
 	/>
 {/if}
 

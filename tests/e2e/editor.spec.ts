@@ -146,10 +146,12 @@ test("round-trips a position through the analysis board", async ({ page }) => {
 	await expect(editorFen(page)).toHaveValue(fen);
 });
 
-test("opens the play page with the position as its fen parameter", async ({ page }) => {
+test("opens the play page with the position in its setup", async ({ page }) => {
 	const fen = "4k3/8/8/8/8/8/8/4K2R w K - 0 1";
 	await openEditor(page, fen);
 	await play(page).click();
-	await expect(page).toHaveURL(/\/play\?fen=/);
-	expect(new URL(page.url()).searchParams.get("fen")).toBe(fen);
+	await expect(page).toHaveURL(/\/play$/);
+	await expect(page.getByRole("dialog", { name: "New game" }).getByLabel("Start FEN")).toHaveValue(
+		fen,
+	);
 });

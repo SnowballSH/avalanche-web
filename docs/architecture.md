@@ -653,9 +653,12 @@ controller only exists on its own page, and the probe asks the cache for the
 same key the game will use, so starting the game reuses that worker.
 
 `start(settings)` acquires the `play` lease, which suspends any analysis
-lease, and connects with `{ hashMb }`. Only when the settings ask for more
-than one thread and the pin's `threadsMax` is above 1 does it connect again
-with `threads`, so Threads is never sent to a single-threaded pin. It then
+lease, and connects once: with `{ hashMb, threads }` when the settings ask for
+more than one thread (the dialog only offers that when the probed pin's
+`threadsMax` is above 1), else with `{ hashMb }`. A saved game asking for more
+threads than its pin now allows fails at the host's `threadsMax` check, which
+runs before any `setoption Threads`, so Threads is never sent to a
+single-threaded pin and no second worker is booted. It then
 sends `ucinewgame`, resets `MultiPV` to 1 (the analysis board may have raised
 it on the same worker), sets `UCI_Chess960` for an FRC start, and either
 `UCI_LimitStrength true` with the clamped `UCI_Elo`, or `UCI_LimitStrength
@@ -664,12 +667,17 @@ false` with `UCI_Elo` back at the pin's default for full strength, and
 
 Each engine search is `position fen <root> moves …` followed by `go` with
 `wtime`, `btime`, `winc` and `binc` read from the clock at that moment, plus
-the per-move limit when one is set. Every change that makes a search stale
+the per-move limit when one is set. The engine's own time is sent
+`ENGINE_TIME_MARGIN_MS` (100 ms) short, never below 1 ms: the page charges the
+engine from the user's press until the `bestmove` message arrives, which
+includes the worker round trip that the engine's own timer cannot see. Every change that makes a search stale
 (the user's takeback, resignation, a flag, a new game) bumps a generation
 counter and stops the search; a `bestmove` from an older generation is never
 played. The engine's last `multipv 1` score for each of its moves is kept, in
-the engine's own point of view, for the draw offer, which `drawOfferAccepted`
-decides. An engine move that arrives after its flag fell is refused and the
+the engine's own point of view, for the draw offer: one entry per engine move,
+`null` for a move that came with no score, so a takeback removes exactly the
+entries of the moves it removes. The offer is accepted when the last ten
+entries are all scores and `drawOfferAccepted` accepts them. An engine move that arrives after its flag fell is refused and the
 game is lost on time.
 
 With Ponder on, after the engine's move the controller sends `position` with
@@ -710,14 +718,28 @@ version `1`, the setup (settings, `userColor`, `startedAt`), the main line as
 UCI moves, a clock snapshot, the engine's scores and the result. The
 controller saves after every move, takeback and result, and the page also
 saves on `visibilitychange` to hidden and on `pagehide` so a reload keeps the
-time used since the last move. Loading validates the whole shape (version,
-settings, moves, clock, scores, result); anything else, including unparsable
-JSON or another version, is removed and treated as no game, and a saved game
-whose moves no longer replay is discarded too. Every storage call is wrapped,
+time used since the last move. Loading validates the whole shape: the version, the settings (a per-move
+limit within `ENGINE_LIMIT_MAX`: one hour of movetime, depth 128, ten billion
+nodes, the same bounds the dialog enforces), an ISO `startedAt`, the moves,
+which must replay from the start, a clock whose running side is the side to
+move (or none), and none once there is a result, the scores and the result.
+Anything else, including unparsable JSON or another version, is removed and
+treated as no game. A stored Hash that this device does not offer is clamped
+to the largest choice below it, or the smallest choice. Every storage call is wrapped,
 so a throwing or absent `localStorage` means no persistence rather than an
 error. On load a finished game is shown with its result; an unfinished one
 reconnects the engine and restores the clock, charging the side to move from
 that moment on, since no one was playing while the page was closed.
+
+### Starting from a link
+
+`/play?fen=<FEN>` (the editor's "Play from here") opens the setup dialog with
+that position in the picker's FEN field, and removes the parameter from the
+address with SvelteKit's `replaceState`, so a later reload resumes the game
+rather than reopening the setup. An invalid FEN shows the parser's message in
+the picker and leaves the standard start selected. A saved game is not
+resumed while the linked setup is open and is not discarded either: starting
+the new game replaces it, and closing the dialog without starting resumes it.
 
 ### Afterwards
 
@@ -734,13 +756,13 @@ navigates to `/analysis`, whose page takes the entry once on mount, removes
 it, imports it through `importPgn` like a paste, loads the game and moves to
 its last position. `sessionStorage` is per tab, so the handoff never leaks
 into another tab, and it avoids a URL size limit that a `#pgn=` link would
-hit on a long game.
+hit on a long game. When the browser refuses the write, the play page stays
+where it is and says so, pointing at the PGN download.
 
 ### End-to-end notes
 
 `tests/e2e/play.spec.ts` plays a 1+0 game as White against a 300-node engine,
 choosing moves with chessops from the page's FEN and a seeded picker, until a
-result appears, then follows the handoff into the analysis board. Playwright's
-WebKit empties Cache Storage on every navigation and does not keep the pin
-that the reloaded page downloads again, so the engine half of the reload test
-runs on Chromium only; the restored position and moves are checked on both.
+result appears, then follows the handoff into the analysis board. The reload
+test runs in a persistent context for the same Cache Storage reason as the
+stale pin test above.

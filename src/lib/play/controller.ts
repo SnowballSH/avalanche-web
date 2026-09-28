@@ -1,7 +1,7 @@
 import { parseUci } from "chessops/util";
 import { type PovScore, whitePovAt } from "$lib/board/eval";
 import { turnOf } from "$lib/board/moves";
-import { adjudicate, drawOfferAccepted } from "$lib/chess/adjudicate";
+import { adjudicate, DRAW_OFFER_WINDOW_MOVES, drawOfferAccepted } from "$lib/chess/adjudicate";
 import { positionFromFen } from "$lib/chess/fen";
 import { exportPgn } from "$lib/chess/pgn";
 import { createGameTree, IllegalMoveError, InvalidStartError } from "$lib/chess/tree";
@@ -22,6 +22,7 @@ import type {
 } from "$lib/engine/types";
 import type { PinId } from "$lib/pins/types";
 import { createClock } from "./clock";
+import { replayGame } from "./replay";
 import type {
 	Clock,
 	ClockFactory,
@@ -80,6 +81,8 @@ interface Ponder {
 
 const PROMOTION_SUFFIX = "q";
 
+export const ENGINE_TIME_MARGIN_MS = 100;
+
 const other = (side: Color): Color => (side === "white" ? "black" : "white");
 
 const RESULT_TOKENS: Readonly<Record<GameResult["winner"], string>> = {
@@ -113,18 +116,6 @@ const engineErrorText = (error: unknown): string => {
 
 const secondsText = (ms: number): string => String(Math.round(ms / 1000));
 
-const replay = (setup: GameSetup, moves: readonly UciMove[]): GameTree | null => {
-	try {
-		const tree = createGameTree(setup.settings.start);
-		let node = tree.root;
-		for (const move of moves) node = tree.addMove(node, move);
-		return tree;
-	} catch (error) {
-		if (error instanceof IllegalMoveError || error instanceof InvalidStartError) return null;
-		throw error;
-	}
-};
-
 const lastNode = (tree: GameTree): NodeId => tree.mainline().at(-1) ?? tree.root;
 
 const mainlineMoves = (tree: GameTree): UciMove[] =>
@@ -148,7 +139,7 @@ export class PlayController {
 	#clock: Clock | null = null;
 	#search: EngineSearch | null = null;
 	#ponder: Ponder | null = null;
-	#engineScores: Score[] = [];
+	#engineScores: (Score | null)[] = [];
 	#generation = 0;
 
 	constructor(deps: PlayControllerDeps) {
@@ -224,7 +215,7 @@ export class PlayController {
 	resume(): boolean {
 		const saved = this.#deps.store?.load();
 		if (!saved) return false;
-		const tree = replay(saved.setup, saved.moves);
+		const tree = replayGame(saved.setup.settings.start, saved.moves);
 		if (!tree) {
 			this.#deps.store?.clear();
 			return false;
@@ -300,12 +291,18 @@ export class PlayController {
 
 	offerDraw(): boolean {
 		if (this.#state.phase !== "playing") return false;
-		if (drawOfferAccepted(this.#engineScores)) {
+		if (this.#engineWantsDraw()) {
 			this.#finish({ winner: "draw", reason: "agreement" });
 			return true;
 		}
 		this.#update({ notice: "Avalanche declines the draw." });
 		return false;
+	}
+
+	#engineWantsDraw(): boolean {
+		const window = this.#engineScores.slice(-DRAW_OFFER_WINDOW_MOVES);
+		const scores = window.filter((score): score is Score => score !== null);
+		return scores.length === DRAW_OFFER_WINDOW_MOVES && drawOfferAccepted(scores);
 	}
 
 	canTakeback(): boolean {
@@ -464,15 +461,12 @@ export class PlayController {
 		const setup = this.#state.setup;
 		if (!setup) throw new Error("No game is set up");
 		const { settings } = setup;
-		let session = await this.#deps.connect(settings.pinId, { hashMb: settings.hashMb });
-		let capabilities = session.capabilities ?? (await session.handshake());
-		if (settings.threads !== null && settings.threads > 1 && capabilities.threadsMax > 1) {
-			session = await this.#deps.connect(settings.pinId, {
-				hashMb: settings.hashMb,
-				threads: Math.min(settings.threads, capabilities.threadsMax),
-			});
-			capabilities = session.capabilities ?? (await session.handshake());
-		}
+		const options: EngineStartOptions =
+			settings.threads !== null && settings.threads > 1
+				? { hashMb: settings.hashMb, threads: settings.threads }
+				: { hashMb: settings.hashMb };
+		const session = await this.#deps.connect(settings.pinId, options);
+		const capabilities = session.capabilities ?? (await session.handshake());
 		await this.#configure(session, capabilities, settings);
 		return session;
 	}
@@ -511,10 +505,15 @@ export class PlayController {
 		const now = this.#deps.now();
 		const { incrementMs } = setup.settings.timeControl;
 		const limit = setup.settings.engineLimit;
+		const engineColor = other(setup.userColor);
+		const time = (side: Color): number => {
+			const remaining = Math.floor(clock.remaining(side, now));
+			return side === engineColor ? Math.max(1, remaining - ENGINE_TIME_MARGIN_MS) : remaining;
+		};
 		return {
 			...(limit ? { [limit.kind]: limit.value } : {}),
-			wtime: Math.floor(clock.remaining("white", now)),
-			btime: Math.floor(clock.remaining("black", now)),
+			wtime: time("white"),
+			btime: time("black"),
 			winc: incrementMs,
 			binc: incrementMs,
 			...(ponder ? { ponder: true } : {}),
@@ -578,7 +577,7 @@ export class PlayController {
 			return;
 		}
 		this.#clock.press();
-		if (score) this.#engineScores.push(score);
+		this.#engineScores.push(score);
 		this.#update({
 			revision: this.#state.revision + 1,
 			engine: { kind: "idle" },

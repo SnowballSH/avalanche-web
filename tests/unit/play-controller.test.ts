@@ -105,10 +105,16 @@ const engineReplies = async (h: Harness, move: string, extra: readonly string[] 
 	await vi.waitFor(() => expect(mainline(h).length).toBeGreaterThan(before));
 };
 
-const playRound = async (h: Harness, user: string, reply: string, round: number, cp = 0) => {
+const playRound = async (
+	h: Harness,
+	user: string,
+	reply: string,
+	round: number,
+	cp: number | null = 0,
+) => {
 	expect(h.controller.userMove(user)).toBe(true);
 	await waitForGo(h, round);
-	await engineReplies(h, reply, [`info depth 6 score cp ${cp} pv ${reply}`]);
+	await engineReplies(h, reply, cp === null ? [] : [`info depth 6 score cp ${cp} pv ${reply}`]);
 };
 
 const started = async (overrides: Partial<PlaySettings> = {}, options: HarnessOptions = {}) => {
@@ -128,7 +134,7 @@ describe("PlayController", () => {
 		expect(h.controller.userMove("e2e4")).toBe(true);
 		await waitForGo(h, 1);
 		expect(goCommands(h.engine())[0]).toBe(
-			"go nodes 500 wtime 59000 btime 60000 winc 2000 binc 2000",
+			"go nodes 500 wtime 59000 btime 59900 winc 2000 binc 2000",
 		);
 		expect(h.engine().commandsMatching("position").at(-1)).toBe(
 			`position fen ${INITIAL_FEN} moves e2e4`,
@@ -168,20 +174,29 @@ describe("PlayController", () => {
 		expect(commands).toContain("setoption name UCI_Chess960 value true");
 	});
 
-	it("does not send Threads when the pin's Threads max is 1", async () => {
-		const h = await started({ threads: 4 });
+	it("connects without Threads when one thread is asked for", async () => {
+		const h = await started({ threads: null });
 		expect(h.connect.mock.calls.map((call) => call[1])).toEqual([{ hashMb: 64 }]);
 		expect(h.engine().commandsMatching("setoption name Threads")).toEqual([]);
 	});
 
-	it("sends Threads when the pin advertises more than one", async () => {
+	it("never sends Threads to a pin whose Threads max is 1", async () => {
+		const h = harness();
+		await h.controller.start(settingsWith({ threads: 4 }));
+		expect(h.controller.state.engine.kind).toBe("failed");
+		expect(h.fake.engines).toHaveLength(1);
+		expect(h.engine().commandsMatching("setoption name Threads")).toEqual([]);
+	});
+
+	it("connects once with Threads when the pin advertises more than one", async () => {
 		const optionLines = FAKE_OPTION_LINES.map((line) =>
 			line.startsWith("option name Threads")
 				? "option name Threads type spin default 1 min 1 max 8"
 				: line,
 		);
 		const h = await started({ threads: 4 }, { optionLines });
-		expect(h.connect.mock.calls.at(-1)?.[1]).toEqual({ hashMb: 64, threads: 4 });
+		expect(h.connect.mock.calls.map((call) => call[1])).toEqual([{ hashMb: 64, threads: 4 }]);
+		expect(h.fake.engines).toHaveLength(1);
 		expect(h.engine().commandsMatching("setoption name Threads")).toEqual([
 			"setoption name Threads value 4",
 		]);
@@ -272,6 +287,65 @@ describe("PlayController", () => {
 		await playRound(h, "c3c4", "c6c5", 11, -12);
 		expect(h.controller.offerDraw()).toBe(true);
 		expect(h.controller.result).toEqual({ winner: "draw", reason: "agreement" });
+	});
+
+	it("keeps the draw window one-to-one with the engine's moves", async () => {
+		const h = await started();
+		const white = [
+			"a2a3",
+			"b2b3",
+			"c2c3",
+			"d2d3",
+			"e2e3",
+			"f2f3",
+			"g2g3",
+			"h2h3",
+			"a3a4",
+			"b3b4",
+			"c3c4",
+		];
+		const black = [
+			"a7a6",
+			"b7b6",
+			"c7c6",
+			"d7d6",
+			"e7e6",
+			"f7f6",
+			"g7g6",
+			"h7h6",
+			"a6a5",
+			"b6b5",
+			"c6c5",
+		];
+		for (const [index, move] of white.entries()) {
+			await playRound(h, move, black[index] ?? "", index + 1, index === 1 ? null : 0);
+		}
+		expect(h.controller.offerDraw()).toBe(false);
+		await playRound(h, "d3d4", "d6d5", 12, 3);
+		expect(h.controller.offerDraw()).toBe(true);
+	});
+
+	it("drops a scoreless engine move's placeholder on takeback", async () => {
+		const h = await started();
+		await playRound(h, "e2e4", "e7e5", 1, 17);
+		await playRound(h, "g1f3", "b8c6", 2, null);
+		expect(h.store.load()?.engineScores).toEqual([{ kind: "cp", value: 17 }, null]);
+		h.controller.takeback();
+		expect(h.store.load()?.engineScores).toEqual([{ kind: "cp", value: 17 }]);
+	});
+
+	it("dispose saves the game, stops the search and releases the lease", async () => {
+		const h = await started();
+		h.controller.userMove("e2e4");
+		await waitForGo(h, 1);
+		h.time.advance(2_000);
+		h.controller.dispose();
+		expect(h.engine().commands.at(-1)).toBe("stop");
+		expect(h.store.load()?.clock).toEqual({ whiteMs: 60_000, blackMs: 58_000, running: "black" });
+		expect(() => h.scheduler.acquire("play")).not.toThrow();
+		h.engine().emit("bestmove e7e5");
+		await Promise.resolve();
+		expect(h.store.load()?.moves).toEqual(["e2e4"]);
 	});
 
 	it("ends the game on resignation and stops the engine", async () => {
@@ -469,7 +543,7 @@ describe("PlayController", () => {
 		expect(second.controller.remaining("white")).toBe(57_500);
 		expect(second.controller.remaining("black")).toBe(59_000);
 		await waitForGo(second, 1);
-		expect(goCommands(second.engine())[0]).toBe("go wtime 57500 btime 59000 winc 1000 binc 1000");
+		expect(goCommands(second.engine())[0]).toBe("go wtime 57500 btime 58900 winc 1000 binc 1000");
 		second.time.advance(1_000);
 		expect(second.controller.remaining("black")).toBe(58_000);
 	});

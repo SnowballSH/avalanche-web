@@ -66,7 +66,7 @@ export interface SavedGame {
 	readonly setup: GameSetup;
 	readonly moves: readonly UciMove[];
 	readonly clock: ClockSnapshot;
-	readonly engineScores: readonly Score[];
+	readonly engineScores: readonly (Score | null)[];
 	readonly result: GameResult | null;
 }
 

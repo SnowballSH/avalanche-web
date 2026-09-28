@@ -3,14 +3,16 @@ import { Button, Callout, Input } from "foundationui/svelte";
 import { parseFen } from "$lib/chess/fen";
 import { FRC_POSITIONS, frcBackRank, randomFrc } from "$lib/chess/frc";
 import type { StartPosition } from "$lib/chess/types";
+import type { LinkedStart } from "./start-link";
 
 interface Props {
 	onselect: (start: StartPosition) => void;
 	actionLabel?: string;
+	initial?: LinkedStart | null;
 	class?: string;
 }
 
-let { onselect, actionLabel = "Set up", class: className = "" }: Props = $props();
+let { onselect, actionLabel = "Set up", initial = null, class: className = "" }: Props = $props();
 
 type Mode = StartPosition["kind"];
 
@@ -27,6 +29,16 @@ let fenText = $state("");
 let seedText = $state(String(STANDARD_SCHARNAGL));
 let error = $state<string | null>(null);
 let info = $state<string | null>(null);
+
+$effect.pre(() => {
+	if (!initial) return;
+	const { start, error: linkError } = initial;
+	mode = start.kind;
+	if (start.kind === "fen") fenText = start.fen;
+	if (start.kind === "frc") seedText = String(start.scharnagl);
+	error = linkError;
+	info = null;
+});
 
 const parseSeed = (text: string): number | null => {
 	const trimmed = text.trim();

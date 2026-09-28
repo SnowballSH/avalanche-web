@@ -31,6 +31,15 @@ export const ENGINE_LIMIT_LABELS: Readonly<Record<EngineLimitKind, string>> = {
 	nodes: "Nodes",
 };
 
+export const ENGINE_LIMIT_MAX: Readonly<Record<EngineLimitKind, number>> = {
+	movetime: 3_600_000,
+	depth: 128,
+	nodes: 10_000_000_000,
+};
+
+export const withinEngineLimit = (kind: EngineLimitKind, value: number): boolean =>
+	Number.isSafeInteger(value) && value > 0 && value <= ENGINE_LIMIT_MAX[kind];
+
 export const timeControlLabel = (control: TimeControl): string =>
 	`${control.baseMs / MS_PER_MINUTE}+${control.incrementMs / MS_PER_SECOND}`;
 

@@ -1,9 +1,15 @@
 import type { GameResultReason } from "$lib/chess/types";
-import type { PlayStore, SavedGame } from "./types";
+import { replayGame, sideToMove } from "./replay";
+import { withinEngineLimit } from "./setup";
+import type { EngineLimitKind, PlayStore, SavedGame } from "./types";
 
 export const PLAY_STORAGE_KEY = "avalanche-play-v1";
 
 export type PlayStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+
+export interface PlayStoreOptions {
+	readonly hashChoices?: readonly number[];
+}
 
 type Check = (value: unknown) => boolean;
 
@@ -61,6 +67,15 @@ const isNonNegative: Check = (value) =>
 
 const isColor = literal("white", "black");
 
+const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
+
+const isIsoTimestamp: Check = (value) =>
+	typeof value === "string" && ISO_TIMESTAMP.test(value) && Number.isFinite(Date.parse(value));
+
+const isEngineLimit: Check = (value) =>
+	shape({ kind: literal("movetime", "depth", "nodes"), value: isPositiveInteger })(value) &&
+	withinEngineLimit((value as { kind: EngineLimitKind }).kind, (value as { value: number }).value);
+
 const isStart = oneOf(
 	shape({ kind: literal("standard") }),
 	shape({ kind: literal("fen"), fen: isString }),
@@ -80,10 +95,7 @@ const isSettings = shape({
 		shape({ kind: literal("elo"), elo: isInteger }),
 	),
 	timeControl: shape({ baseMs: isPositiveInteger, incrementMs: isNonNegative }),
-	engineLimit: oneOf(
-		literal(null),
-		shape({ kind: literal("movetime", "depth", "nodes"), value: isPositiveInteger }),
-	),
+	engineLimit: oneOf(literal(null), isEngineLimit),
 	hashMb: isPositiveInteger,
 	threads: oneOf(literal(null), isPositiveInteger),
 	ponder: isBoolean,
@@ -97,14 +109,14 @@ const isScore = shape({
 
 const isSavedGame = shape({
 	version: literal(1),
-	setup: shape({ settings: isSettings, userColor: isColor, startedAt: isString }),
+	setup: shape({ settings: isSettings, userColor: isColor, startedAt: isIsoTimestamp }),
 	moves: arrayOf(isString),
 	clock: shape({
 		whiteMs: isNonNegative,
 		blackMs: isNonNegative,
 		running: oneOf(literal(null), isColor),
 	}),
-	engineScores: arrayOf(isScore),
+	engineScores: arrayOf(oneOf(literal(null), isScore)),
 	result: oneOf(
 		literal(null),
 		shape({
@@ -122,7 +134,31 @@ const parse = (text: string): unknown => {
 	}
 };
 
-export const createPlayStore = (storage: PlayStorage | undefined): PlayStore => {
+const consistent = (game: SavedGame): boolean => {
+	const tree = replayGame(game.setup.settings.start, game.moves);
+	if (!tree) return false;
+	const { running } = game.clock;
+	return game.result === null ? running === null || running === sideToMove(tree) : running === null;
+};
+
+const clampHash = (hashMb: number, choices: readonly number[] | undefined): number => {
+	if (!choices || choices.length === 0 || choices.includes(hashMb)) return hashMb;
+	const fitting = choices.filter((choice) => choice <= hashMb);
+	return fitting.length > 0 ? Math.max(...fitting) : Math.min(...choices);
+};
+
+const withHash = (game: SavedGame, choices: readonly number[] | undefined): SavedGame => {
+	const { settings } = game.setup;
+	const hashMb = clampHash(settings.hashMb, choices);
+	return hashMb === settings.hashMb
+		? game
+		: { ...game, setup: { ...game.setup, settings: { ...settings, hashMb } } };
+};
+
+export const createPlayStore = (
+	storage: PlayStorage | undefined,
+	options: PlayStoreOptions = {},
+): PlayStore => {
 	const clear = (): void => {
 		try {
 			storage?.removeItem(PLAY_STORAGE_KEY);
@@ -140,7 +176,9 @@ export const createPlayStore = (storage: PlayStorage | undefined): PlayStore => 
 			}
 			if (text === null) return null;
 			const value = parse(text);
-			if (isSavedGame(value)) return value as SavedGame;
+			if (isSavedGame(value) && consistent(value as SavedGame)) {
+				return withHash(value as SavedGame, options.hashChoices);
+			}
 			clear();
 			return null;
 		},
@@ -155,10 +193,13 @@ export const createPlayStore = (storage: PlayStorage | undefined): PlayStore => 
 	};
 };
 
-export const browserPlayStore = (): PlayStore => {
+export const browserPlayStore = (options: PlayStoreOptions = {}): PlayStore => {
 	try {
-		return createPlayStore(typeof window === "undefined" ? undefined : window.localStorage);
+		return createPlayStore(
+			typeof window === "undefined" ? undefined : window.localStorage,
+			options,
+		);
 	} catch {
-		return createPlayStore(undefined);
+		return createPlayStore(undefined, options);
 	}
 };

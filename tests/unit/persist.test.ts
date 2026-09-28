@@ -96,11 +96,62 @@ describe("createPlayStore", () => {
 			}),
 		],
 		["a JSON null", "null"],
+		[
+			"a start time that is not an ISO timestamp",
+			JSON.stringify({ ...game, setup: { ...game.setup, startedAt: "yesterday" } }),
+		],
+		[
+			"a nodes limit beyond the bound",
+			JSON.stringify({
+				...game,
+				setup: {
+					...game.setup,
+					settings: { ...game.setup.settings, engineLimit: { kind: "nodes", value: 1e13 } },
+				},
+			}),
+		],
+		[
+			"a depth limit beyond the bound",
+			JSON.stringify({
+				...game,
+				setup: {
+					...game.setup,
+					settings: { ...game.setup.settings, engineLimit: { kind: "depth", value: 500 } },
+				},
+			}),
+		],
+		["moves that do not replay", JSON.stringify({ ...game, moves: ["e2e4", "e2e4"] })],
+		[
+			"a running clock for the side not to move",
+			JSON.stringify({ ...game, clock: { ...game.clock, running: "black" } }),
+		],
+		[
+			"a running clock after the result",
+			JSON.stringify({ ...game, result: { winner: "white", reason: "resign" } }),
+		],
 	])("discards %s", (_label, stored) => {
 		const storage = memoryStorage();
 		storage.setItem(PLAY_STORAGE_KEY, stored);
 		expect(createPlayStore(storage).load()).toBeNull();
 		expect(storage.items.has(PLAY_STORAGE_KEY)).toBe(false);
+	});
+
+	it("clamps a restored Hash to this device's choices", () => {
+		const storage = memoryStorage();
+		const settings = (hashMb: number) => ({
+			...game,
+			setup: { ...game.setup, settings: { ...game.setup.settings, hashMb } },
+		});
+		const store = createPlayStore(storage, { hashChoices: [16, 32, 64] });
+		for (const [saved, restored] of [
+			[1024, 64],
+			[48, 32],
+			[8, 16],
+			[32, 32],
+		] as const) {
+			storage.setItem(PLAY_STORAGE_KEY, JSON.stringify(settings(saved)));
+			expect(store.load()?.setup.settings.hashMb).toBe(restored);
+		}
 	});
 
 	it("clears the saved game", () => {

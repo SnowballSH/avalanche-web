@@ -1,4 +1,5 @@
 import type { EngineStartOptions, UciSession } from "$lib/engine/types";
+import { askToPersist } from "$lib/pins/persistence";
 import type { PinCatalogData, PinEntry, PinId, PinProgressListener } from "$lib/pins/types";
 
 export interface EngineSelection {
@@ -13,6 +14,7 @@ export interface EngineConnectorDeps {
 	download(pin: PinEntry, onProgress?: PinProgressListener): Promise<void>;
 	ensure(pin: PinEntry, options: EngineStartOptions): Promise<UciSession>;
 	effectiveHashMb(): number | null;
+	requestPersistence(): Promise<boolean>;
 }
 
 export interface EngineReady {
@@ -50,6 +52,10 @@ export class EngineConnector {
 		this.#events = events;
 	}
 
+	cancel(): void {
+		this.#generation += 1;
+	}
+
 	async connect(selection: EngineSelection): Promise<UciSession> {
 		this.#generation += 1;
 		const generation = this.#generation;
@@ -69,6 +75,7 @@ export class EngineConnector {
 			await this.#deps.download(pin, (fraction) => {
 				if (current()) this.#events.onProgress(fraction);
 			});
+			askToPersist(this.#deps);
 			assertCurrent();
 			this.#events.onProgress(null);
 			const session = await this.#deps.ensure(pin, startOptions(selection));

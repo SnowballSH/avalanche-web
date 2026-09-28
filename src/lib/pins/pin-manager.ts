@@ -1,4 +1,5 @@
 import type { DefaultPinChoice } from "./default-pin";
+import { askToPersist } from "./persistence";
 import { PinStoreError } from "./store";
 import type {
 	CataloguePinState,
@@ -175,6 +176,7 @@ export class PinManager {
 				progress.fraction = next;
 				this.#publish();
 			});
+			askToPersist(this.#store);
 		} catch (error) {
 			if (isCurrent()) this.#errors.set(id, pinErrorMessage(error));
 		}

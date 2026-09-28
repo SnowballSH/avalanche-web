@@ -11,6 +11,7 @@ import { FEN_QUERY_PARAM } from "$lib/editor/editor-state";
 import { hashChoices as hashChoicesFor } from "$lib/engine/memory";
 import type { EngineCapabilities, EngineScheduler } from "$lib/engine/types";
 import { getDefaultPin } from "$lib/pins/default-pin";
+import { askToPersist } from "$lib/pins/persistence";
 import type { PinEntry, PinId } from "$lib/pins/types";
 import { type EngineConnector, PlayController } from "$lib/play/controller";
 import GamePanel from "$lib/play/GamePanel.svelte";
@@ -62,6 +63,7 @@ const connect: EngineConnector = async (pinId, options) => {
 		await runtime.pins.download(pin, (fraction) => {
 			download = fraction;
 		});
+		askToPersist(runtime.pins);
 		download = null;
 		return await runtime.sessions.ensure(pin, options);
 	} catch (error) {

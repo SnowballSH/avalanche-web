@@ -1,9 +1,14 @@
 import { INITIAL_FEN } from "chessops/fen";
 import { describe, expect, it, vi } from "vitest";
 import { AnalysisController } from "../../src/lib/analysis/controller";
+import {
+	EngineConnector,
+	EngineConnectSupersededError,
+} from "../../src/lib/analysis/engine-connector";
 import { importPgn } from "../../src/lib/chess/pgn";
 import { createScheduler } from "../../src/lib/engine/scheduler";
 import { UciSessionRuntime } from "../../src/lib/engine/session";
+import type { PinEntry } from "../../src/lib/pins/types";
 import { FakeEngine } from "./helpers/fake-engine";
 
 const setup = async () => {
@@ -13,8 +18,9 @@ const setup = async () => {
 	await session.handshake();
 	const scheduler = createScheduler();
 	const connect = vi.fn(async () => session);
-	const controller = new AnalysisController({ scheduler, connect });
-	return { engine, session, scheduler, connect, controller };
+	const cancelConnect = vi.fn();
+	const controller = new AnalysisController({ scheduler, connect, cancelConnect });
+	return { engine, session, scheduler, connect, cancelConnect, controller };
 };
 
 const goCount = (engine: FakeEngine) => engine.commandsMatching("go").length;
@@ -254,7 +260,7 @@ describe("AnalysisController", () => {
 			.fn<() => Promise<UciSessionRuntime>>()
 			.mockRejectedValueOnce(new Error("Download failed"))
 			.mockResolvedValue(session);
-		const controller = new AnalysisController({ scheduler, connect });
+		const controller = new AnalysisController({ scheduler, connect, cancelConnect: vi.fn() });
 		await controller.setEngine(true);
 		await vi.waitFor(() =>
 			expect(controller.state.engine).toEqual({ kind: "failed", message: "Download failed" }),
@@ -309,5 +315,77 @@ describe("AnalysisController", () => {
 		controller.move("c7c5");
 		expect(controller.lineAsPgn(controller.state.current)).toContain("1. e4 c5 *");
 		expect(controller.lineAsPgn(controller.state.current)).not.toContain("e5");
+	});
+
+	it("cancels a pending connection when the engine is switched off or the page is left", async () => {
+		const { controller, cancelConnect } = await setup();
+		await controller.setEngine(false);
+		expect(cancelConnect).toHaveBeenCalledTimes(1);
+		controller.dispose();
+		expect(cancelConnect).toHaveBeenCalledTimes(2);
+	});
+
+	it("never starts a session for a connection still downloading when the page is left", async () => {
+		const pin: PinEntry = {
+			id: "master-9b7ee6f",
+			commit: "9b7ee6ff829dcfb5ee5e48d8dcb83bd44c26a642",
+			label: "A",
+			date: "2026-09-27",
+			sha256: "ab".repeat(32),
+			bytes: 100,
+		};
+		const download = Promise.withResolvers<void>();
+		const ensure = vi.fn(async () => (await setup()).session);
+		const connector = new EngineConnector(
+			{
+				catalogue: async () => ({ abi: 1, pins: [pin] }),
+				defaultPin: (data) => data.pins[0] ?? null,
+				download: () => download.promise,
+				ensure,
+				effectiveHashMb: () => null,
+				requestPersistence: async () => false,
+			},
+			{ onCatalogue: () => {}, onProgress: () => {}, onReady: () => {} },
+		);
+		let connecting: Promise<unknown> | null = null;
+		const controller = new AnalysisController({
+			scheduler: createScheduler(),
+			connect: () => {
+				const attempt = connector.connect({ pinId: pin.id, hashMb: 16, threads: 1 });
+				connecting = attempt.catch((error: unknown) => error);
+				return attempt;
+			},
+			cancelConnect: () => connector.cancel(),
+		});
+		void controller.setEngine(true);
+		await vi.waitFor(() => expect(connecting).not.toBeNull());
+		controller.dispose();
+		download.resolve();
+		expect(await connecting).toBeInstanceOf(EngineConnectSupersededError);
+		expect(ensure).not.toHaveBeenCalled();
+	});
+
+	it("sends no further options once a configuration is superseded", async () => {
+		let controller: AnalysisController | null = null;
+		const engine = new FakeEngine({
+			onSetOption: (name) => {
+				if (name === "MultiPV") void controller?.setEngine(false);
+				return [];
+			},
+		});
+		const session = new UciSessionRuntime(engine);
+		engine.onLine((line) => session.receive(line));
+		await session.handshake();
+		controller = new AnalysisController({
+			scheduler: createScheduler(),
+			connect: async () => session,
+			cancelConnect: vi.fn(),
+		});
+		await controller.setEngine(true);
+		expect(engine.commandsMatching("setoption name MultiPV")).toHaveLength(1);
+		expect(engine.commandsMatching("setoption name UCI_Chess960")).toEqual([]);
+		expect(engine.commandsMatching("setoption name UCI_LimitStrength")).toEqual([]);
+		expect(engine.commandsMatching("position")).toEqual([]);
+		expect(controller.state.engine.kind).toBe("off");
 	});
 });

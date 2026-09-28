@@ -34,6 +34,8 @@ export class FakePinStore implements PinStore {
 	readonly orphaned: PendingDownload[] = [];
 	settleOnDelete = true;
 	downloads = 0;
+	persistenceRequests = 0;
+	persistence: () => Promise<boolean> = async () => false;
 
 	cache(id: PinId, sha256: Sha256Hex, bytes: number): void {
 		this.cached.set(id, { sha256, bytes });
@@ -109,8 +111,9 @@ export class FakePinStore implements PinStore {
 		return { usedBytes, quotaBytes: QUOTA_BYTES };
 	}
 
-	async requestPersistence(): Promise<boolean> {
-		return false;
+	requestPersistence(): Promise<boolean> {
+		this.persistenceRequests += 1;
+		return this.persistence();
 	}
 
 	settleOrphans(): void {

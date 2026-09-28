@@ -139,6 +139,27 @@ describe("downloading and deleting", () => {
 		expect(manager.state.usage?.usedBytes).toBe(older.bytes);
 	});
 
+	it("asks for persistent storage after a successful download and tolerates a refusal", async () => {
+		const { store, manager } = setup();
+		store.persistence = () => Promise.reject(new Error("denied"));
+		await manager.load();
+		const done = manager.download(older.id);
+		expect(store.persistenceRequests).toBe(0);
+		store.finish(older.id);
+		await done;
+		expect(store.persistenceRequests).toBe(1);
+		expect(rowOf(manager, older.id)).toMatchObject({ state: { kind: "ready" }, error: null });
+	});
+
+	it("does not ask for persistent storage when a download fails", async () => {
+		const { store, manager } = setup();
+		await manager.load();
+		const done = manager.download(older.id);
+		store.fail(older.id, new Error("network"));
+		await done;
+		expect(store.persistenceRequests).toBe(0);
+	});
+
 	it("returns a deleted pin to absent and lowers the usage", async () => {
 		const { store, manager } = setup();
 		store.cache(newest.id, newest.sha256, newest.bytes);

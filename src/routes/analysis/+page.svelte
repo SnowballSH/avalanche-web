@@ -55,6 +55,7 @@ const connector = new EngineConnector(
 		download: (pin, onProgress) => browserEngineRuntime().pins.download(pin, onProgress),
 		ensure: (pin, options) => browserEngineRuntime().sessions.ensure(pin, options),
 		effectiveHashMb: () => browserEngineRuntime().sessions.host.effectiveHashMb,
+		requestPersistence: () => browserEngineRuntime().pins.requestPersistence(),
 	},
 	{
 		onCatalogue: (catalogue) => {
@@ -80,7 +81,11 @@ const connect = async (): Promise<UciSession> => {
 	}
 };
 
-const controller = new AnalysisController({ scheduler, connect });
+const controller = new AnalysisController({
+	scheduler,
+	connect,
+	cancelConnect: () => connector.cancel(),
+});
 
 let view = $state.raw(controller.state);
 

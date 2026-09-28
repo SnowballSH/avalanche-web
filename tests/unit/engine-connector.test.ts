@@ -37,6 +37,7 @@ const setup = () => {
 	const ensure = vi.fn(
 		async (_pin: PinEntry, _options: EngineStartOptions): Promise<UciSession> => readySession(),
 	);
+	const requestPersistence = vi.fn(async () => false);
 	const deps: EngineConnectorDeps = {
 		catalogue: async () => catalogue,
 		defaultPin: (data) => data.pins[0] ?? null,
@@ -48,13 +49,21 @@ const setup = () => {
 		},
 		ensure,
 		effectiveHashMb: () => 64,
+		requestPersistence,
 	};
 	const events = {
 		onCatalogue: vi.fn<EngineConnectorEvents["onCatalogue"]>(),
 		onProgress: vi.fn<EngineConnectorEvents["onProgress"]>(),
 		onReady: vi.fn<EngineConnectorEvents["onReady"]>(),
 	};
-	return { connector: new EngineConnector(deps, events), downloads, progress, ensure, events };
+	return {
+		connector: new EngineConnector(deps, events),
+		downloads,
+		progress,
+		ensure,
+		events,
+		requestPersistence,
+	};
 };
 
 describe("EngineConnector", () => {
@@ -122,5 +131,48 @@ describe("EngineConnector", () => {
 		downloads.get(pinA.id)?.resolve();
 		await connecting;
 		expect(ensure).toHaveBeenCalledWith(pinA, { hashMb: 64 });
+	});
+
+	it("never starts a session for a connection cancelled mid-download", async () => {
+		const { connector, downloads, progress, ensure, events } = setup();
+		const connecting = connector.connect({ pinId: pinA.id, hashMb: 64, threads: 1 });
+		await vi.waitFor(() => expect(downloads.has(pinA.id)).toBe(true));
+		connector.cancel();
+		events.onProgress.mockClear();
+		progress.get(pinA.id)?.(0.7);
+		downloads.get(pinA.id)?.resolve();
+		await expect(connecting).rejects.toBeInstanceOf(EngineConnectSupersededError);
+		expect(ensure).not.toHaveBeenCalled();
+		expect(events.onProgress).not.toHaveBeenCalled();
+		expect(events.onReady).not.toHaveBeenCalled();
+	});
+
+	it("asks for persistent storage once a download succeeds, and tolerates a refusal", async () => {
+		const { connector, downloads, requestPersistence } = setup();
+		const connecting = connector.connect({ pinId: pinA.id, hashMb: 64, threads: 1 });
+		await vi.waitFor(() => expect(downloads.has(pinA.id)).toBe(true));
+		expect(requestPersistence).not.toHaveBeenCalled();
+		downloads.get(pinA.id)?.resolve();
+		await connecting;
+		expect(requestPersistence).toHaveBeenCalledTimes(1);
+	});
+
+	it("still connects when asking for persistent storage throws", async () => {
+		const { connector, downloads, requestPersistence, events } = setup();
+		requestPersistence.mockRejectedValueOnce(new Error("denied"));
+		const connecting = connector.connect({ pinId: pinA.id, hashMb: 64, threads: 1 });
+		await vi.waitFor(() => expect(downloads.has(pinA.id)).toBe(true));
+		downloads.get(pinA.id)?.resolve();
+		await connecting;
+		expect(events.onReady).toHaveBeenCalledTimes(1);
+	});
+
+	it("does not ask for persistent storage when the download fails", async () => {
+		const { connector, downloads, requestPersistence } = setup();
+		const connecting = connector.connect({ pinId: pinA.id, hashMb: 64, threads: 1 });
+		await vi.waitFor(() => expect(downloads.has(pinA.id)).toBe(true));
+		downloads.get(pinA.id)?.reject(new Error("network"));
+		await expect(connecting).rejects.toThrow("network");
+		expect(requestPersistence).not.toHaveBeenCalled();
 	});
 });

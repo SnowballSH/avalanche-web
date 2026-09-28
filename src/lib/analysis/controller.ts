@@ -71,6 +71,7 @@ export type AnalysisSource = StartPosition | ImportedGame;
 export interface AnalysisControllerDeps {
 	readonly scheduler: EngineScheduler;
 	readonly connect: () => Promise<UciSession>;
+	readonly cancelConnect: () => void;
 }
 
 interface Configuration {
@@ -133,6 +134,7 @@ export const clampMultiPv = (value: number): number =>
 export class AnalysisController {
 	readonly #scheduler: EngineScheduler;
 	readonly #connect: () => Promise<UciSession>;
+	readonly #cancelConnect: () => void;
 	readonly #listeners = new Set<(state: AnalysisState) => void>();
 	readonly #lines = new Map<number, EngineLine>();
 	#state: AnalysisState;
@@ -147,6 +149,7 @@ export class AnalysisController {
 	constructor(deps: AnalysisControllerDeps) {
 		this.#scheduler = deps.scheduler;
 		this.#connect = deps.connect;
+		this.#cancelConnect = deps.cancelConnect;
 		const tree = createGameTree({ kind: "standard" });
 		this.#state = {
 			tree,
@@ -175,6 +178,7 @@ export class AnalysisController {
 	async setEngine(on: boolean): Promise<void> {
 		if (!on) {
 			this.#engineOn = false;
+			this.#cancelConnect();
 			this.#halt();
 			this.#releaseLease();
 			this.#forgetSession();
@@ -406,8 +410,7 @@ export class AnalysisController {
 		try {
 			const session = await this.#ensureSession();
 			if (generation !== this.#generation) return;
-			await this.#configure(session);
-			if (generation !== this.#generation) return;
+			if (!(await this.#configure(session, generation))) return;
 			const { tree, current } = this.#state;
 			await session.position(tree.fenAt(tree.root), movesTo(tree, current));
 			if (generation !== this.#generation) return;
@@ -420,23 +423,33 @@ export class AnalysisController {
 		}
 	}
 
-	async #configure(session: UciSession): Promise<void> {
+	async #configure(session: UciSession, generation: number): Promise<boolean> {
+		const current = () => generation === this.#generation;
 		const chess960 = this.#state.tree.start.kind === "frc";
 		const { multiPv } = this.#state;
 		const done = this.#configured;
 		if (done?.session === session && done.multiPv === multiPv && done.chess960 === chess960) {
-			return;
+			return true;
 		}
 		const capabilities = session.capabilities ?? (await session.handshake());
+		if (!current()) return false;
 		if (chess960 && !capabilities.supportsChess960) {
 			throw new Error("This engine version does not support Chess960");
 		}
 		if (capabilities.multiPvMax > 1) {
 			await session.setOption("MultiPV", Math.min(multiPv, capabilities.multiPvMax));
+			if (!current()) return false;
 		}
-		if (capabilities.supportsChess960) await session.setOption("UCI_Chess960", chess960);
-		if (capabilities.supportsLimitStrength) await session.setOption("UCI_LimitStrength", false);
+		if (capabilities.supportsChess960) {
+			await session.setOption("UCI_Chess960", chess960);
+			if (!current()) return false;
+		}
+		if (capabilities.supportsLimitStrength) {
+			await session.setOption("UCI_LimitStrength", false);
+			if (!current()) return false;
+		}
 		this.#configured = { session, multiPv, chess960 };
+		return true;
 	}
 
 	async #consume(

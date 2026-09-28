@@ -6,7 +6,7 @@ const nonIsolatedPort = port + 1;
 
 export default defineConfig({
 	testDir: "tests/e2e",
-	testIgnore: /\/(served|headers)\.spec\.ts$/,
+	testIgnore: /\/(served|served-pages|headers)\.spec\.ts$/,
 	fullyParallel: true,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 0,

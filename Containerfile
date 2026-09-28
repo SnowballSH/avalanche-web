@@ -29,9 +29,11 @@ RUN --mount=type=cache,id=avalanche-web-zig,target=/root/.cache/zig \
 
 FROM docker.io/library/node:26.10.0-trixie@sha256:a723b54c35a76e947095a20a67d39585bb09c862e6b1adeb8a9f518f95e34fb0 AS site
 WORKDIR /src
-COPY package.json package-lock.json .npmrc ./
+RUN chown node:node /src
+USER node
+COPY --chown=node:node package.json package-lock.json .npmrc ./
 RUN npm ci --no-audit --no-fund
-COPY . .
+COPY --chown=node:node . .
 RUN npm run check
 RUN npm run lint
 RUN npm test

@@ -4,7 +4,7 @@ const port = Number(process.env.AVALANCHE_SERVE_PORT ?? 8095);
 const image = process.env.AVALANCHE_IMAGE ?? "avalanche-web:local";
 const baseURL = `http://127.0.0.1:${port}`;
 
-const browserSpecs = /\/(served|shell)\.spec\.ts$/;
+const browserSpecs = /\/(served|served-pages|shell)\.spec\.ts$/;
 
 export default defineConfig({
 	testDir: "tests/e2e",

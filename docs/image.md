@@ -17,8 +17,10 @@ passes them through untouched.
    Zig's global cache and the Avalanche object cache are BuildKit cache
    mounts, so a catalogue change rebuilds only the commits it adds. Pins are
    never copied into the image unchecked.
-2. **`site`** (`node:26`) runs `npm ci`, `check`, `lint`, the unit tests and
-   `build`, then `scripts/write-csp-header.ts` writes `csp.caddy` (below).
+2. **`site`** (`node:26`) runs as the image's unprivileged `node` user, so
+   tests that depend on file permissions behave as they do on a workstation.
+   It runs `npm ci`, `check`, `lint`, the unit tests and `build`, then
+   `scripts/write-csp-header.ts` writes `csp.caddy` (below).
 3. **final** (`caddy:2.11.4`) removes the `cap_net_bind_service` file
    capability from the binary, runs as the unprivileged `avalanche` user
    (uid 10001), and carries `/etc/caddy/Caddyfile`, `/etc/caddy/csp.caddy`,
@@ -101,8 +103,12 @@ npm run test:e2e:served                 # serves the image on 127.0.0.1:8095
 (read-only root, tmpfs `/config`, `/data` and `/tmp`, every capability
 dropped, no new privileges) with podman, or docker when podman is absent or
 `CONTAINER_ENGINE=docker`. `playwright.served.config.ts` starts it and runs
-`tests/e2e/headers.spec.ts` over plain HTTP and `tests/e2e/served.spec.ts`
-plus `shell.spec.ts` in Chromium and WebKit. `AVALANCHE_IMAGE` and
+`tests/e2e/headers.spec.ts` over plain HTTP, and `tests/e2e/served.spec.ts`,
+`served-pages.spec.ts` and `shell.spec.ts` in Chromium and WebKit.
+`served-pages.spec.ts` runs the real pages under the header CSP: the analysis
+engine's worker searches past depth 5, a Play game answers a move, the editor
+and Engines pages work, and each test fails on any CSP violation or any
+request that leaves the origin. `AVALANCHE_IMAGE` and
 `AVALANCHE_SERVE_PORT` override the image and port.
 
 ## Publishing

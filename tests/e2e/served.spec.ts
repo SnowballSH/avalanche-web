@@ -2,6 +2,7 @@ import { expect, type Page, test } from "@playwright/test";
 import { PIN_CACHE_NAME, pinCacheKey } from "../../src/lib/pins/cache-key";
 import type { createPinStore } from "../../src/lib/pins/store";
 import type { PinCatalogData, PinEntry } from "../../src/lib/pins/types";
+import { watchCsp } from "./helpers/csp-watch";
 import { bundlePinStore } from "./helpers/pin-store-bundle";
 
 const DEEP_LINKS = [
@@ -13,41 +14,25 @@ const DEEP_LINKS = [
 
 declare global {
 	interface Window {
-		cspViolations: string[];
 		AvalanchePinStore: { createPinStore: typeof createPinStore };
 	}
 }
 
-const recordCspViolations = async (page: Page): Promise<void> => {
-	await page.addInitScript(() => {
-		window.cspViolations = [];
-		document.addEventListener("securitypolicyviolation", (event) => {
-			window.cspViolations.push(`${event.violatedDirective} ${event.blockedURI}`);
-		});
-	});
-};
-
 const expectBooted = async (page: Page): Promise<void> => {
 	const root = page.locator("html");
 	const before = await root.getAttribute("data-theme");
-	await page.getByRole("button", { name: /Switch to (light|dark) theme/ }).click();
+	// Play opens its setup as a modal dialog, which makes the header inert to pointer clicks.
+	await page.getByRole("button", { name: /Switch to (light|dark) theme/ }).dispatchEvent("click");
 	await expect(root).toHaveAttribute("data-theme", before === "light" ? "dark" : "light");
 };
 
 test("the app boots under the served CSP without a single violation", async ({ page }) => {
-	const consoleProblems: string[] = [];
-	page.on("console", (message) => {
-		if (/content security policy|refused to/i.test(message.text())) {
-			consoleProblems.push(message.text());
-		}
-	});
-	await recordCspViolations(page);
-	for (const path of ["/analysis", "/engines", "/play"]) {
+	const csp = await watchCsp(page);
+	for (const path of ["/analysis", "/engines", "/play", "/editor"]) {
 		await page.goto(path);
 		await expectBooted(page);
-		expect(await page.evaluate(() => window.cspViolations), path).toEqual([]);
+		expect(await csp.violations(), path).toEqual([]);
 	}
-	expect(consoleProblems).toEqual([]);
 });
 
 test("the page is cross-origin isolated", async ({ page }) => {
@@ -110,10 +95,12 @@ test("no request leaves the origin", async ({ page, baseURL }) => {
 			offOrigin.push(request.url());
 		}
 	});
-	for (const path of ["/", "/analysis", "/engines", "/play"]) {
+	for (const path of ["/", "/play", "/analysis", "/editor", "/engines"]) {
 		await page.goto(path);
 		await expectBooted(page);
 	}
+	await page.getByRole("link", { name: "Analysis" }).click();
+	await expect(page).toHaveURL(/\/analysis$/);
 	await page.getByRole("link", { name: "Engines" }).click();
 	await expect(page).toHaveURL(/\/engines$/);
 	expect(offOrigin).toEqual([]);

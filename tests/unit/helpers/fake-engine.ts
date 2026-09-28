@@ -19,6 +19,7 @@ export const FAKE_OPTION_LINES: readonly string[] = [
 export interface FakeEngineOptions {
 	readonly onSetOption?: (name: string, value: string | undefined) => readonly string[];
 	readonly answersUci?: boolean;
+	readonly optionLines?: readonly string[];
 }
 
 export interface FakeConnectionOptions extends FakeEngineOptions {
@@ -49,7 +50,7 @@ export class FakeEngine implements LineTransport, EngineConnection {
 		switch (verb) {
 			case "uci":
 				if (this.#options.answersUci === false) return;
-				this.emit("id name Fake", "", ...FAKE_OPTION_LINES, "uciok");
+				this.emit("id name Fake", "", ...(this.#options.optionLines ?? FAKE_OPTION_LINES), "uciok");
 				return;
 			case "isready":
 				this.emit("readyok");

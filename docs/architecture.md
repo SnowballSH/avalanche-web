@@ -563,3 +563,117 @@ non-isolated one on 4174 for the refusal test. The engine tests need the pin
 built first (`scripts/build-pins.sh build-pins/out`, which CI runs before the
 e2e step). The clipboard tests replace `navigator.clipboard.writeText` with a
 recorder, since WebKit grants Playwright no clipboard permission.
+
+## Play vs Avalanche
+
+`src/routes/play/+page.svelte` wires the board, `GamePanel` and `SetupDialog`
+to one `PlayController` (`src/lib/play/controller.ts`). Like the analysis
+controller it is plain TypeScript that publishes an immutable `PlayState`
+(`idle`, `starting`, `playing`, `over`) with a tree `revision`.
+
+### Setup and the engine
+
+The dialog picks the side (a `random` side is resolved once, when the game
+starts, and stored as `userColor`), the start through `StartPositionPicker`,
+the pin, the strength, the time control (`src/lib/play/setup.ts`: the five
+presets or a custom 0.25–180 minutes plus 0–180 s), an optional per-move
+limit (`movetime`, `depth` or `nodes`), Hash, Threads and Ponder. While it is
+open the page probes the chosen pin and Hash through the shared
+`EngineSessionCache`, downloading the pin first, so the Elo slider can span
+the pin's advertised `UCI_Elo` range and Threads is offered only when the
+pin's `threadsMax` is above 1. The probe holds no lease: the analysis
+controller only exists on its own page, and the probe asks the cache for the
+same key the game will use, so starting the game reuses that worker.
+
+`start(settings)` acquires the `play` lease, which suspends any analysis
+lease, and connects with `{ hashMb }`. Only when the settings ask for more
+than one thread and the pin's `threadsMax` is above 1 does it connect again
+with `threads`, so Threads is never sent to a single-threaded pin. It then
+sends `ucinewgame`, resets `MultiPV` to 1 (the analysis board may have raised
+it on the same worker), sets `UCI_Chess960` for an FRC start, and either
+`UCI_LimitStrength true` with the clamped `UCI_Elo`, or `UCI_LimitStrength
+false` with `UCI_Elo` back at the pin's default for full strength, and
+`Ponder`. The lease is released when the game ends and when the page is left.
+
+Each engine search is `position fen <root> moves …` followed by `go` with
+`wtime`, `btime`, `winc` and `binc` read from the clock at that moment, plus
+the per-move limit when one is set. Every change that makes a search stale
+(the user's takeback, resignation, a flag, a new game) bumps a generation
+counter and stops the search; a `bestmove` from an older generation is never
+played. The engine's last `multipv 1` score for each of its moves is kept, in
+the engine's own point of view, for the draw offer, which `drawOfferAccepted`
+decides. An engine move that arrives after its flag fell is refused and the
+game is lost on time.
+
+With Ponder on, after the engine's move the controller sends `position` with
+the expected reply appended and `go ponder` with the clock fields. If the user
+plays that reply the controller sends `ponderhit` and waits for the same
+search's `bestmove`; any other move stops the ponder search, whose result is
+ignored, and starts a normal search on the real position.
+
+A premove is held by the controller and tried the moment the engine's move
+has been applied, as queen promotion when the plain move is illegal; an
+illegal premove is dropped. The page cancels chessground's premove highlight
+whenever the controller's premove is cleared.
+
+Takeback is allowed once the user has moved. On the user's turn it removes the
+engine's reply and the user's move; while the engine thinks it removes the
+user's move and stops the search. The clocks keep their times and the user's
+clock runs again. Every position after a move goes through `adjudicate`
+against the game's earlier positions, so checkmate, stalemate, insufficient
+material, the fifty-move rule and threefold repetition end the game whoever
+moved.
+
+### The clock
+
+`createClock` (`src/lib/play/clock.ts`) keeps each side's stored time and the
+timestamp from which the running side is charged, and computes the remaining
+time from the `MonotonicNow` it is given (`performance.now()` on the page).
+Nothing is decremented by timer ticks: the page's 100 ms interval and the
+`visibilitychange` handler only call `tick()`, which checks `flagged(now)`.
+A background tab whose timers were throttled therefore still charges the full
+elapsed time the moment it returns, and a flag falls at the right time.
+`start(side)` on a running clock charges the old side and switches without an
+increment; `press()` charges, adds the increment and switches.
+
+### Persistence
+
+`src/lib/play/persist.ts` stores a `SavedGame` under `avalanche-play-v1`:
+version `1`, the setup (settings, `userColor`, `startedAt`), the main line as
+UCI moves, a clock snapshot, the engine's scores and the result. The
+controller saves after every move, takeback and result, and the page also
+saves on `visibilitychange` to hidden and on `pagehide` so a reload keeps the
+time used since the last move. Loading validates the whole shape (version,
+settings, moves, clock, scores, result); anything else, including unparsable
+JSON or another version, is removed and treated as no game, and a saved game
+whose moves no longer replay is discarded too. Every storage call is wrapped,
+so a throwing or absent `localStorage` means no persistence rather than an
+error. On load a finished game is shown with its result; an unfinished one
+reconnects the engine and restores the clock, charging the side to move from
+that moment on, since no one was playing while the page was closed.
+
+### Afterwards
+
+`pgn()` exports the main line with the seven-tag roster (`You` against
+`Avalanche <pin id>`), `TimeControl`, the engine's Elo when limited,
+`Termination`, and the result token; `exportPgn` adds `Variant`, `SetUp` and
+`FEN` for an FRC start. `downloadPgn()` saves it as
+`avalanche-<YYYY-MM-DD>.pgn` (the game's start date, in UTC) through
+`src/lib/shared/save-file.ts`, a `Blob` URL on a temporary link.
+
+"Analyse this game" hands the PGN over in `sessionStorage` under
+`avalanche-analysis-handoff` (`src/lib/shared/analysis-handoff.ts`) and
+navigates to `/analysis`, whose page takes the entry once on mount, removes
+it, imports it through `importPgn` like a paste, loads the game and moves to
+its last position. `sessionStorage` is per tab, so the handoff never leaks
+into another tab, and it avoids a URL size limit that a `#pgn=` link would
+hit on a long game.
+
+### End-to-end notes
+
+`tests/e2e/play.spec.ts` plays a 1+0 game as White against a 300-node engine,
+choosing moves with chessops from the page's FEN and a seeded picker, until a
+result appears, then follows the handoff into the analysis board. Playwright's
+WebKit empties Cache Storage on every navigation and does not keep the pin
+that the reloaded page downloads again, so the engine half of the reload test
+runs on Chromium only; the restored position and moves are checked on both.

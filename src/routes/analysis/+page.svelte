@@ -12,11 +12,13 @@ import { type PovScore, whitePovAt } from "$lib/board/eval";
 import { legalDests, turnOf } from "$lib/board/moves";
 import { bestMoveArrow } from "$lib/board/shapes";
 import { positionFromFen } from "$lib/chess/fen";
+import { importPgn } from "$lib/chess/pgn";
 import type { Color, StartPosition } from "$lib/chess/types";
 import { hashChoices as hashChoicesFor } from "$lib/engine/memory";
 import type { EngineScheduler, UciSession } from "$lib/engine/types";
 import { getDefaultPin } from "$lib/pins/default-pin";
 import type { PinEntry, PinId } from "$lib/pins/types";
+import { takeAnalysisHandoff } from "$lib/shared/analysis-handoff";
 import {
 	browserEngineRuntime,
 	defaultHashMb,
@@ -125,6 +127,24 @@ const loadStart = (start: StartPosition) => {
 	status = loaded.ok ? "New position set up" : loaded.error.message;
 };
 
+const loadHandoff = () => {
+	const pgn = takeAnalysisHandoff();
+	if (pgn === null) return;
+	const imported = importPgn(pgn);
+	const game = imported.ok ? imported.value[0] : undefined;
+	if (!game) {
+		status = imported.ok ? "The handed-over game was empty" : imported.error.message;
+		return;
+	}
+	const loaded = controller.load(game);
+	if (!loaded.ok) {
+		status = loaded.error.message;
+		return;
+	}
+	controller.last();
+	status = "Game loaded from Play";
+};
+
 const KEY_ACTIONS: Readonly<Record<string, () => void>> = {
 	ArrowLeft: () => controller.previous(),
 	ArrowRight: () => controller.next(),
@@ -158,6 +178,7 @@ onMount(() => {
 	});
 	const loadHash = () => controller.loadHash(window.location.hash);
 	loadHash();
+	loadHandoff();
 	window.addEventListener("hashchange", loadHash);
 	let stopNotices = () => {};
 	if (isolated) {

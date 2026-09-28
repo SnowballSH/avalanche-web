@@ -33,6 +33,16 @@ export class SearchAbortedError extends Error implements SearchAbortedErrorContr
 	}
 }
 
+export class SessionAbortedError extends Error {
+	override readonly name = "SessionAbortedError";
+	readonly reason: AbortReason;
+
+	constructor(reason: AbortReason) {
+		super(`Engine ${reason}: session aborted`);
+		this.reason = reason;
+	}
+}
+
 class AsyncQueue<T> implements AsyncIterable<T> {
 	readonly #buffered: T[] = [];
 	#waiting: ((result: IteratorResult<T>) => void) | null = null;
@@ -304,8 +314,8 @@ export class UciSessionRuntime implements UciSession {
 		return option !== undefined;
 	}
 
-	#abortedError(reason: AbortReason): Error {
-		return new Error(`Engine ${reason}: session aborted`);
+	#abortedError(reason: AbortReason): SessionAbortedError {
+		return new SessionAbortedError(reason);
 	}
 
 	#assertLive(): void {

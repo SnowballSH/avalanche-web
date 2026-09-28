@@ -507,12 +507,18 @@ searched node, never raw.
 `EngineHost` (one worker), the scheduler, the `PinStore` and a memoised
 catalogue load. Its `EngineSessionCache` (`src/lib/engine/session-cache.ts`)
 returns the running session while the pin, Hash and Threads are unchanged and
-starts a new worker otherwise; a crash or a failed start clears it. The page's
-`connect` loads the catalogue, picks the chosen pin (else the default pin),
-runs `PinStore.download` with progress (it resolves at once for a cached pin,
-since `get` never downloads), then asks the cache for a session. Changing the
-pin, the Hash or the Threads calls `reconnect()`, which restarts the search on
-the new worker. A Hash allocation notice is shown with the size in effect.
+starts a new worker otherwise (an unset Threads and `Threads 1` are the same
+key); a crash or a failed start clears it. The page's `connect` goes through
+an `EngineConnector` (`src/lib/analysis/engine-connector.ts`): it loads the
+catalogue, picks the chosen pin (else the default pin), runs
+`PinStore.download` with progress (it resolves at once for a cached pin, since
+`get` never downloads), then asks the cache for a session, passing `threads`
+only above one. Every `connect` bumps a generation; a superseded connect
+rejects with `EngineConnectSupersededError` after its download and before
+`ensure`, so it never starts a worker that would replace the newer one, and
+only the current connect may update the progress bar, the pin, the effective
+Hash or the Threads maximum. Changing the pin, the Hash or the Threads calls
+`reconnect()`, which restarts the search on the new worker. A Hash allocation notice is shown with the size in effect.
 
 When `crossOriginIsolated` is false the engine switch is disabled and the
 panel explains why: the engine is stopped through a `SharedArrayBuffer`, which
@@ -536,8 +542,10 @@ picker.
 
 ### Import, export and links
 
-A pasted single line of at most 256 characters that contains `/` is treated as
-a FEN, anything else as PGN. `importPgn` enforces the 5 MB cap and builds only
+`pasteKind` (`src/lib/analysis/paste-kind.ts`) treats a paste as a FEN when
+it is one line of at most 256 characters whose first field has eight
+`/`-separated ranks, and as PGN otherwise, so `1. d4 d5 2. c4 1/2-1/2` imports
+as a game. `importPgn` enforces the 5 MB cap and builds only
 the picked game's tree; any error is shown inline and the current tree is
 kept. A multi-game paste lists the games to pick from. A FEN whose normalised
 form differs from the input (for example castling rights without their rook)
@@ -553,13 +561,15 @@ Scharnagl number 0–959 typed or drawn with `randomFrc`.
 
 ### Local serving and the end-to-end tests
 
-`vite.config.ts` adds a middleware to both the dev and the preview server that
+`vite.config.ts` adds the middleware from `scripts/local-serving.ts` to both
+the dev and the preview server; it
 sends COOP `same-origin`, COEP `require-corp` and CORP `same-origin`, and
 serves `/engines/pins.json` and `/engines/<id>/avalanche.wasm` from
 `build-pins/out/engines` (override with `AVALANCHE_PINS_DIR`).
+A pin that cannot be read answers 500 instead of leaving the request hanging.
 `AVALANCHE_ISOLATION=off` drops the isolation headers. Playwright starts two
-preview servers from one build: the isolated one on 4173 for every test, and a
-non-isolated one on 4174 for the refusal test. The engine tests need the pin
+preview servers from one build: the isolated one on `E2E_PORT` (default 4173)
+for every test, and a non-isolated one on the next port for the refusal test. The engine tests need the pin
 built first (`scripts/build-pins.sh build-pins/out`, which CI runs before the
 e2e step). The clipboard tests replace `navigator.clipboard.writeText` with a
 recorder, since WebKit grants Playwright no clipboard permission.

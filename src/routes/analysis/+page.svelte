@@ -3,6 +3,7 @@ import { Button, Callout, Panel } from "foundationui/svelte";
 import { onMount } from "svelte";
 import { AnalysisController } from "$lib/analysis/controller";
 import EnginePanel from "$lib/analysis/EnginePanel.svelte";
+import { EngineConnector, EngineConnectSupersededError } from "$lib/analysis/engine-connector";
 import ImportExport from "$lib/analysis/ImportExport.svelte";
 import MoveTree from "$lib/analysis/MoveTree.svelte";
 import Board from "$lib/board/Board.svelte";
@@ -44,29 +45,35 @@ let download = $state<number | null>(null);
 let orientation = $state<Color>("white");
 let status = $state<string | null>(null);
 
-const startOptions = () => (threadsMax > 1 ? { hashMb, threads } : { hashMb });
+const connector = new EngineConnector(
+	{
+		catalogue: () => browserEngineRuntime().catalogue(),
+		defaultPin: getDefaultPin,
+		download: (pin, onProgress) => browserEngineRuntime().pins.download(pin, onProgress),
+		ensure: (pin, options) => browserEngineRuntime().sessions.ensure(pin, options),
+		effectiveHashMb: () => browserEngineRuntime().sessions.host.effectiveHashMb,
+	},
+	{
+		onCatalogue: (catalogue) => {
+			pins = catalogue;
+		},
+		onProgress: (fraction) => {
+			download = fraction;
+		},
+		onReady: (ready) => {
+			pinId = ready.pin.id;
+			effectiveHashMb = ready.effectiveHashMb;
+			threadsMax = ready.threadsMax;
+		},
+	},
+);
 
 const connect = async (): Promise<UciSession> => {
-	const runtime = browserEngineRuntime();
 	try {
-		const catalogue = await runtime.catalogue();
-		pins = catalogue.pins;
-		const pin = catalogue.pins.find((entry) => entry.id === pinId) ?? getDefaultPin(catalogue);
-		if (!pin) throw new Error("The engine catalogue lists no engine versions");
-		pinId = pin.id;
-		download = 0;
-		await runtime.pins.download(pin, (fraction) => {
-			download = fraction;
-		});
-		download = null;
-		const session = await runtime.sessions.ensure(pin, startOptions());
-		effectiveHashMb = runtime.sessions.host.effectiveHashMb;
-		threadsMax = session.capabilities?.threadsMax ?? 1;
-		return session;
+		return await connector.connect({ pinId, hashMb, threads });
 	} catch (error) {
+		if (error instanceof EngineConnectSupersededError) throw error;
 		throw new Error(engineErrorMessage(error));
-	} finally {
-		download = null;
 	}
 };
 
@@ -279,6 +286,7 @@ onMount(() => {
 				onhash={(value) =>
 					restartWith(() => {
 						hashMb = value;
+						effectiveHashMb = null;
 						hashNotice = null;
 					})}
 				onthreads={(value) => restartWith(() => (threads = value))}

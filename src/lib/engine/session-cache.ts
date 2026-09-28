@@ -7,7 +7,7 @@ interface CachedSession {
 }
 
 const sessionKey = (pin: PinEntry, options: EngineStartOptions): string =>
-	[pin.id, pin.sha256, options.hashMb, options.threads ?? ""].join("|");
+	[pin.id, pin.sha256, options.hashMb, Math.max(1, options.threads ?? 1)].join("|");
 
 export class EngineSessionCache {
 	readonly #host: EngineHost;

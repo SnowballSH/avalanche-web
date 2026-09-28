@@ -6,6 +6,20 @@ const config = {
 	preprocess: vitePreprocess(),
 	kit: {
 		adapter: adapter({ fallback: "index.html" }),
+		csp: {
+			mode: "hash",
+			directives: {
+				"default-src": ["self"],
+				"script-src": ["self", "wasm-unsafe-eval"],
+				"worker-src": ["self"],
+				"style-src": ["self", "unsafe-inline"],
+				"img-src": ["self", "data:"],
+				"connect-src": ["self"],
+				"frame-ancestors": ["none"],
+				"base-uri": ["none"],
+				"form-action": ["none"],
+			},
+		},
 	},
 };
 

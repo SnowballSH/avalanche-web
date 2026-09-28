@@ -6,6 +6,7 @@ import { Button, Select } from "foundationui/svelte";
 import Board from "$lib/board/Board.svelte";
 import EvalBar from "$lib/board/EvalBar.svelte";
 import EvalGraph from "$lib/board/EvalGraph.svelte";
+import type { PovScore } from "$lib/board/eval";
 import { legalDests } from "$lib/board/moves";
 import { bestMoveArrow } from "$lib/board/shapes";
 import { positionFromFen } from "$lib/chess/fen";
@@ -21,6 +22,16 @@ const POSITIONS = {
 
 type PositionName = keyof typeof POSITIONS;
 
+const BAR_SCORES = {
+	"+0.35": { kind: "cp", value: 35 },
+	"-10.52": { kind: "cp", value: -1052 },
+	"+123.45": { kind: "cp", value: 12345 },
+	"-#12": { kind: "mate", value: -12 },
+	"1-0": { kind: "checkmate", winner: "white" },
+} as const satisfies Record<string, PovScore>;
+
+type BarScoreName = keyof typeof BAR_SCORES;
+
 const GRAPH_SCORES: readonly Score[] = [
 	{ kind: "cp", value: 20 },
 	{ kind: "cp", value: 60 },
@@ -30,6 +41,7 @@ const GRAPH_SCORES: readonly Score[] = [
 ];
 
 let position = $state<PositionName>("start");
+let barScore = $state<BarScoreName>("+0.35");
 let chess960 = $state(false);
 let orientation = $state<Color>("white");
 let fen = $state<Fen>(POSITIONS.start);
@@ -75,6 +87,15 @@ const recordShapes = (list: readonly DrawShape[]) => {
 				<option value={name}>{name}</option>
 			{/each}
 		</Select>
+		<Select
+			aria-label="Bar score"
+			value={barScore}
+			onchange={(event) => (barScore = event.currentTarget.value as BarScoreName)}
+		>
+			{#each Object.keys(BAR_SCORES) as name (name)}
+				<option value={name}>{name}</option>
+			{/each}
+		</Select>
 		<label class="toggle">
 			<input type="checkbox" bind:checked={chess960} />
 			Chess960
@@ -88,7 +109,7 @@ const recordShapes = (list: readonly DrawShape[]) => {
 		</Button>
 	</div>
 	<div class="stage">
-		<EvalBar score={{ kind: "cp", value: 35 }} {orientation} />
+		<EvalBar score={BAR_SCORES[barScore]} {orientation} />
 		<Board
 			{fen}
 			{orientation}

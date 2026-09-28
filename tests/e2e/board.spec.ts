@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { expectDisjoint, expectUnclipped } from "./helpers/visibility";
 
 type Orientation = "white" | "black";
 
@@ -158,4 +159,32 @@ test("the eval bar and graph render, and a graph click selects a ply", async ({ 
 	await page.getByRole("button", { name: "Ply 2" }).click();
 	await expect(page.getByTestId("selected")).toHaveText("2");
 	await expect(page.getByRole("button", { name: "Ply 2" })).toHaveAttribute("aria-pressed", "true");
+});
+
+test("the eval label sits above the bar and no score is clipped", async ({ page }) => {
+	const label = page.getByTestId("eval-label");
+	const bar = page.getByRole("meter", { name: "Evaluation" });
+	for (const orientation of ["white", "black"] as const) {
+		for (const score of ["+0.35", "-10.52", "+123.45", "-#12", "1-0"]) {
+			await page.getByLabel("Bar score", { exact: true }).selectOption(score);
+			await expect(bar).toHaveAttribute("aria-valuetext", score);
+			await expectUnclipped(label, score);
+			await expectDisjoint(label, bar);
+			await expectDisjoint(label, page.locator(".stage cg-board"));
+			const [labelBox, barBox] = await Promise.all([label.boundingBox(), bar.boundingBox()]);
+			if (!labelBox || !barBox) throw new Error("the eval bar has no box");
+			expect(labelBox.y + labelBox.height).toBeLessThanOrEqual(barBox.y + 0.5);
+			expect(
+				Math.abs(labelBox.x + labelBox.width / 2 - (barBox.x + barBox.width / 2)),
+			).toBeLessThan(1);
+		}
+		if (orientation === "white") await page.getByRole("button", { name: "Flip" }).click();
+	}
+});
+
+test("a long eval label stays unclipped at phone width", async ({ page }) => {
+	await page.setViewportSize({ width: 375, height: 812 });
+	await page.getByLabel("Bar score", { exact: true }).selectOption("+123.45");
+	await expectUnclipped(page.getByTestId("eval-label"), "+123.45");
+	await expectDisjoint(page.getByTestId("eval-label"), page.locator(".stage cg-board"));
 });

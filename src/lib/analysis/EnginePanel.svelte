@@ -1,5 +1,6 @@
 <script lang="ts">
 import { Button, Callout, Select, Switch } from "foundationui/svelte";
+import { onMount } from "svelte";
 import Board from "$lib/board/Board.svelte";
 import { formatScore } from "$lib/board/eval";
 import type { Color, San } from "$lib/chess/types";
@@ -12,6 +13,7 @@ import {
 	MULTI_PV_MAX,
 	MULTI_PV_MIN,
 } from "./controller";
+import { browserDisclosureMemory } from "./settings-disclosure";
 
 interface Props {
 	status: EngineStatus;
@@ -124,6 +126,19 @@ const hidePreview = () => {
 };
 
 const selectedPin = $derived(pins.find((pin) => pin.id === pinId));
+
+const settingsId = $props.id();
+const settingsMemory = browserDisclosureMemory();
+let settingsOpen = $state(false);
+
+onMount(() => {
+	settingsOpen = settingsMemory.isOpen();
+});
+
+const toggleSettings = () => {
+	settingsOpen = !settingsOpen;
+	settingsMemory.remember(settingsOpen);
+};
 </script>
 
 <section class="engine-panel" aria-label="Engine">
@@ -190,62 +205,75 @@ const selectedPin = $derived(pins.find((pin) => pin.id === pinId));
 		</div>
 	</dl>
 
-	<div class="settings">
-		<label>
-			<span>Lines</span>
-			<Select
-				class="h-8 text-sm"
-				aria-label="Lines"
-				value={String(multiPv)}
-				onchange={(event) => onmultipv(Number(event.currentTarget.value))}
-			>
-				{#each MULTI_PV_CHOICES as choice (choice)}
-					<option value={String(choice)}>{choice}</option>
-				{/each}
-			</Select>
-		</label>
-		<label>
-			<span>Version</span>
-			<Select
-				class="h-8 text-sm"
-				aria-label="Engine version"
-				value={pinId ?? ""}
-				disabled={pins.length === 0}
-				onchange={(event) => onpin(event.currentTarget.value)}
-			>
-				{#each pins as pin (pin.id)}
-					<option value={pin.id}>{pin.label}</option>
-				{/each}
-			</Select>
-		</label>
-		<label>
-			<span>Hash</span>
-			<Select
-				class="h-8 text-sm"
-				aria-label="Hash"
-				value={String(hashMb)}
-				onchange={(event) => onhash(Number(event.currentTarget.value))}
-			>
-				{#each hashChoices as choice (choice)}
-					<option value={String(choice)}>{choice} MB</option>
-				{/each}
-			</Select>
-		</label>
-		{#if threadsMax > 1}
+	<div class="disclosure">
+		<Button
+			size="sm"
+			variant="ghost"
+			class="toggle"
+			aria-expanded={settingsOpen}
+			aria-controls={settingsId}
+			onclick={toggleSettings}
+		>
+			<span class="chevron" class:open={settingsOpen} aria-hidden="true">▸</span>
+			Settings
+		</Button>
+		<div class="settings" id={settingsId} hidden={!settingsOpen}>
 			<label>
-				<span>Threads</span>
+				<span>Lines</span>
 				<Select
 					class="h-8 text-sm"
-					aria-label="Threads"
-					value={String(threads)}
-					onchange={(event) => onthreads(Number(event.currentTarget.value))}
+					aria-label="Lines"
+					value={String(multiPv)}
+					onchange={(event) => onmultipv(Number(event.currentTarget.value))}
 				>
-					{#each Array.from({ length: threadsMax }, (_, index) => index + 1) as choice (choice)}
+					{#each MULTI_PV_CHOICES as choice (choice)}
 						<option value={String(choice)}>{choice}</option>
 					{/each}
 				</Select>
 			</label>
-		{/if}
+			<label>
+				<span>Version</span>
+				<Select
+					class="h-8 text-sm"
+					aria-label="Engine version"
+					value={pinId ?? ""}
+					disabled={pins.length === 0}
+					onchange={(event) => onpin(event.currentTarget.value)}
+				>
+					{#each pins as pin (pin.id)}
+						<option value={pin.id}>{pin.label}</option>
+					{/each}
+				</Select>
+			</label>
+			<label>
+				<span>Hash</span>
+				<Select
+					class="h-8 text-sm"
+					aria-label="Hash"
+					value={String(hashMb)}
+					onchange={(event) => onhash(Number(event.currentTarget.value))}
+				>
+					{#each hashChoices as choice (choice)}
+						<option value={String(choice)}>{choice} MB</option>
+					{/each}
+				</Select>
+			</label>
+			{#if threadsMax > 1}
+				<label>
+					<span>Threads</span>
+					<Select
+						class="h-8 text-sm"
+						aria-label="Threads"
+						value={String(threads)}
+						onchange={(event) => onthreads(Number(event.currentTarget.value))}
+					>
+						{#each Array.from({ length: threadsMax }, (_, index) => index + 1) as choice (choice)}
+							<option value={String(choice)}>{choice}</option>
+						{/each}
+					</Select>
+				</label>
+			{/if}
+		</div>
 	</div>
 
 	<ol class="lines" aria-label="Engine lines">
@@ -322,6 +350,29 @@ const selectedPin = $derived(pins.find((pin) => pin.id === pinId));
 		margin: 0;
 		font-family: var(--fui-font-mono);
 		color: var(--fui-ink);
+	}
+
+	.disclosure {
+		display: grid;
+		gap: 0.5rem;
+		justify-items: start;
+	}
+
+	.disclosure :global(.toggle) {
+		margin-inline-start: -0.75rem;
+	}
+
+	.chevron {
+		display: inline-block;
+		transition: transform 150ms ease;
+	}
+
+	.chevron.open {
+		transform: rotate(90deg);
+	}
+
+	.settings[hidden] {
+		display: none;
 	}
 
 	.settings {

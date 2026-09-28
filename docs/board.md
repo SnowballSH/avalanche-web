@@ -99,6 +99,14 @@ colour always remains, while a mate or a checkmate fills the bar.
 `formatScore` renders `+1.23`, `0.00`, `#4`, `-#4`, and `1-0` or `0-1` for
 a checkmate on the board.
 
+`EvalBar` prints that text as a small tabular-numeral label above the bar,
+centred on it, in the theme's ink colour, and keeps the bar 1.25rem wide.
+The component's column is at least six label characters wide and grows with
+a longer label, so no score is ever clipped by the bar and a typical score
+never shifts the board. The label is hidden from assistive technology
+because the bar's `meter` role already carries the same text as
+`aria-valuetext` (`No evaluation` when there is no score).
+
 `EvalGraph` draws one column per entry of `scores` (index 0 is the start
 position, index n is after ply n), fills the white share from the bottom, and
 overlays one button per column so a click or a keyboard activation calls

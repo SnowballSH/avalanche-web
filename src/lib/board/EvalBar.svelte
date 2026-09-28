@@ -12,33 +12,53 @@ let { score, orientation = "white", class: className = "" }: Props = $props();
 
 const fraction = $derived(evalBarFraction(score));
 const label = $derived(formatScore(score));
-const whiteLeads = $derived(fraction >= 0.5);
 </script>
 
-<div
-	class={`eval-bar ${className}`}
-	class:flipped={orientation === "black"}
-	role="meter"
-	aria-label="Evaluation"
-	aria-valuemin="0"
-	aria-valuemax="100"
-	aria-valuenow={Math.round(fraction * 100)}
-	aria-valuetext={label || "No evaluation"}
-	data-score={label}
->
-	<div class="white" style={`height: ${fraction * 100}%`}></div>
-	<span class="label" class:on-white={whiteLeads}>{label}</span>
+<div class={`eval ${className}`}>
+	<span class="label" data-testid="eval-label" aria-hidden="true">{label}</span>
+	<div
+		class="meter"
+		class:flipped={orientation === "black"}
+		role="meter"
+		aria-label="Evaluation"
+		aria-valuemin="0"
+		aria-valuemax="100"
+		aria-valuenow={Math.round(fraction * 100)}
+		aria-valuetext={label || "No evaluation"}
+		data-score={label}
+	>
+		<div class="white" style={`height: ${fraction * 100}%`}></div>
+	</div>
 </div>
 
 <style>
-	.eval-bar {
+	.eval {
 		--eval-white: #f2f2f2;
 		--eval-black: #262626;
-		position: relative;
+		display: grid;
+		grid-template-rows: auto minmax(0, 1fr);
+		justify-items: center;
+		gap: 0.25rem;
+		inline-size: max-content;
+		min-inline-size: 6ch;
+		block-size: 100%;
+		font-family: var(--fui-font-mono);
+		font-size: 0.6875rem;
+	}
+
+	.label {
+		min-block-size: 1lh;
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
+		line-height: 1.2;
+		white-space: nowrap;
+		color: var(--fui-ink);
+	}
+
+	.meter {
 		display: flex;
 		flex-direction: column-reverse;
-		width: 1.25rem;
-		height: 100%;
+		inline-size: 1.25rem;
 		overflow: hidden;
 		border-radius: var(--fui-radius-xs);
 		background: var(--eval-black);
@@ -51,34 +71,5 @@ const whiteLeads = $derived(fraction >= 0.5);
 	.white {
 		background: var(--eval-white);
 		transition: height 300ms ease;
-	}
-
-	.label {
-		position: absolute;
-		left: 0;
-		right: 0;
-		text-align: center;
-		font-family: var(--fui-font-mono);
-		font-size: 0.6rem;
-		font-weight: 600;
-		line-height: 1;
-		top: 0.25rem;
-		color: var(--eval-white);
-	}
-
-	.label.on-white {
-		top: auto;
-		bottom: 0.25rem;
-		color: var(--eval-black);
-	}
-
-	.flipped .label {
-		top: auto;
-		bottom: 0.25rem;
-	}
-
-	.flipped .label.on-white {
-		top: 0.25rem;
-		bottom: auto;
 	}
 </style>

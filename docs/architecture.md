@@ -542,6 +542,16 @@ only the current connect may update the progress bar, the pin, the effective
 Hash or the Threads maximum. Changing the pin, the Hash or the Threads calls
 `reconnect()`, which restarts the search on the new worker. A Hash allocation notice is shown with the size in effect.
 
+The engine panel always shows the switch, the status and download progress,
+the depth, nodes, speed and effective Hash, the notices and the PV lines.
+Lines (MultiPV), the engine version, Hash and Threads sit behind a
+"Settings" disclosure button (`aria-expanded`, `aria-controls`), collapsed by
+default. `src/lib/analysis/settings-disclosure.ts` remembers its open state
+in `localStorage` under `avalanche-analysis-settings-open`; every read and
+write is guarded, so blocked storage leaves it collapsed. The state is read
+after mount, so the prerendered page and its hydration agree. Play's setup
+dialog keeps its own controls.
+
 When `crossOriginIsolated` is false the engine switch is disabled and the
 panel explains why: the engine is stopped through a `SharedArrayBuffer`, which
 only a cross-origin isolated page may create.

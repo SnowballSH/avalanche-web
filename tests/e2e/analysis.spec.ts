@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { expectDisjoint, expectUnclipped } from "./helpers/visibility";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 const NON_ISOLATED_ANALYSIS = `http://127.0.0.1:${Number(process.env.E2E_PORT ?? 4173) + 1}/analysis`;
@@ -47,6 +48,17 @@ const lastCopied = (page: Page) =>
 const depth = async (page: Page): Promise<number> => {
 	const text = (await page.getByTestId("engine-depth").textContent()) ?? "";
 	return Number.parseInt(text, 10) || 0;
+};
+
+const enginePanel = (page: Page) => page.getByRole("region", { name: "Engine" });
+
+const settingsToggle = (page: Page) =>
+	enginePanel(page).getByRole("button", { name: "Settings", exact: true });
+
+const openSettings = async (page: Page) => {
+	const toggle = settingsToggle(page);
+	if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+	await expect(toggle).toHaveAttribute("aria-expanded", "true");
 };
 
 const switchEngineOn = async (page: Page) => {
@@ -199,12 +211,16 @@ test.describe("the engine", () => {
 			"data-score",
 			/^[+-]?\d+\.\d\d$|^-?#\d+$/,
 		);
+		const label = page.locator(".stage").getByTestId("eval-label");
+		await expectUnclipped(label, /^[+-]?\d+\.\d\d$|^-?#\d+$/);
+		await expectDisjoint(label, page.locator(".stage cg-board"));
 		await expect(page.locator(".stage .cg-shapes line")).toHaveCount(1);
 	});
 
 	test("MultiPV 3 shows three lines ordered by rank", async ({ page }) => {
 		await openAnalysis(page);
 		await switchEngineOn(page);
+		await openSettings(page);
 		await page.getByLabel("Lines", { exact: true }).selectOption("3");
 		const lines = page.getByTestId("pv-line");
 		await expect(lines).toHaveCount(3, { timeout: ENGINE_TIMEOUT });
@@ -212,6 +228,47 @@ test.describe("the engine", () => {
 			items.map((item) => item.getAttribute("data-multipv")),
 		);
 		expect(ranks).toEqual(["1", "2", "3"]);
+	});
+
+	test("the engine settings start collapsed, keep the lines visible and remember being open", async ({
+		page,
+	}) => {
+		await openAnalysis(page);
+		const toggle = settingsToggle(page);
+		await expect(toggle).toHaveAttribute("aria-expanded", "false");
+		const controlled = await toggle.getAttribute("aria-controls");
+		expect(controlled).toBeTruthy();
+		await expect(page.getByLabel("Lines", { exact: true })).toBeHidden();
+		await expect(page.getByLabel("Engine version", { exact: true })).toBeHidden();
+		await expect(page.getByLabel("Hash", { exact: true })).toBeHidden();
+
+		await switchEngineOn(page);
+		await expect(page.getByTestId("pv-line").first()).toBeVisible({ timeout: ENGINE_TIMEOUT });
+		await expect(page.getByTestId("engine-stats")).toBeVisible();
+		await expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+		await toggle.focus();
+		await page.keyboard.press("Enter");
+		await expect(toggle).toHaveAttribute("aria-expanded", "true");
+		await expect(page.locator(`#${controlled}`)).toBeVisible();
+		await expect(page.getByLabel("Lines", { exact: true })).toBeVisible();
+		await expect(page.getByLabel("Hash", { exact: true })).toBeVisible();
+		expect(
+			await page.evaluate(() => localStorage.getItem("avalanche-analysis-settings-open")),
+		).toBe("true");
+
+		await page.reload();
+		await expect(page.locator(".stage cg-board piece").first()).toBeVisible();
+		await expect(settingsToggle(page)).toHaveAttribute("aria-expanded", "true");
+		await expect(page.getByLabel("Lines", { exact: true })).toBeVisible();
+
+		await settingsToggle(page).focus();
+		await page.keyboard.press("Space");
+		await expect(settingsToggle(page)).toHaveAttribute("aria-expanded", "false");
+		await page.reload();
+		await expect(page.locator(".stage cg-board piece").first()).toBeVisible();
+		await expect(settingsToggle(page)).toHaveAttribute("aria-expanded", "false");
+		await expect(page.getByLabel("Lines", { exact: true })).toBeHidden();
 	});
 
 	test("hovering a PV previews its position and clicking it plays the line", async ({

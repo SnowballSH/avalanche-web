@@ -382,7 +382,11 @@ const selectedPin = $derived(pins.find((pin) => pin.id === pinId));
 	.pv-move:focus-visible {
 		background: color-mix(in srgb, var(--fui-accent) 20%, transparent);
 		color: var(--fui-ink);
-		outline: none;
+	}
+
+	.pv-move:focus-visible {
+		outline: 2px solid var(--fui-accent);
+		outline-offset: 1px;
 	}
 
 	.preview {

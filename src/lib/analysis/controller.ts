@@ -13,7 +13,7 @@ import type {
 	San,
 	StartPosition,
 } from "$lib/chess/types";
-import { SearchAbortedError } from "$lib/engine/session";
+import { SearchAbortedError, SessionAbortedError } from "$lib/engine/session";
 import type {
 	EngineLease,
 	EngineScheduler,
@@ -80,7 +80,7 @@ interface Configuration {
 }
 
 const errorMessage = (error: unknown): string => {
-	if (error instanceof SearchAbortedError) {
+	if (error instanceof SearchAbortedError || error instanceof SessionAbortedError) {
 		return error.reason === "crashed"
 			? "The engine crashed. Switch it on again to restart it."
 			: "The engine was stopped. Switch it on again to restart it.";
@@ -315,8 +315,13 @@ export class AnalysisController {
 		if (parent === null) return;
 		const cursorRemoved = tree.pathTo(current).includes(id);
 		tree.deleteFrom(id);
-		this.#touch();
-		if (cursorRemoved) this.goto(parent);
+		if (!cursorRemoved) {
+			this.#touch();
+			return;
+		}
+		this.#lines.clear();
+		this.#update({ revision: this.#state.revision + 1, current: parent, lines: [] });
+		if (this.#analysing()) void this.#restart();
 	}
 
 	lineAsPgn(id: NodeId): string {
@@ -466,9 +471,13 @@ export class AnalysisController {
 			san: pvSan(fen, info.pv),
 		});
 		const stored = tree.node(node).eval;
-		const improves = info.multipv === 1 && info.score.bound === undefined;
-		if (improves && (stored === null || stored.depth <= info.depth)) tree.setEval(node, info);
-		this.#update({ lines: this.#sortedLines(), revision: this.#state.revision + 1 });
+		const exact = info.multipv === 1 && info.score.bound === undefined;
+		const deeper = exact && (stored === null || stored.depth <= info.depth);
+		if (deeper) tree.setEval(node, info);
+		this.#update({
+			lines: this.#sortedLines(),
+			revision: this.#state.revision + (deeper ? 1 : 0),
+		});
 	}
 
 	#sortedLines(): EngineLine[] {

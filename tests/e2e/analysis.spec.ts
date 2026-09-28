@@ -1,7 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-const NON_ISOLATED_ANALYSIS = "http://127.0.0.1:4174/analysis";
+const NON_ISOLATED_ANALYSIS = `http://127.0.0.1:${Number(process.env.E2E_PORT ?? 4173) + 1}/analysis`;
 const ENGINE_TIMEOUT = 60_000;
 
 const openAnalysis = async (page: Page, hash = "") => {
@@ -111,6 +111,13 @@ test.describe("the board, tree and import", () => {
 		await expect.poll(() => lastCopied(page)).toBe(fen);
 	});
 
+	test("a one-line PGN with a drawn result imports as a game", async ({ page }) => {
+		await openAnalysis(page);
+		await importText(page, "1. d4 d5 2. c4 1/2-1/2");
+		await expect(page.getByTestId("import-error")).toHaveCount(0);
+		await expect(moveButtons(page)).toHaveText(["1. d4", "d5", "2. c4"]);
+	});
+
 	test("a bad paste shows an inline error and leaves the tree unchanged", async ({ page }) => {
 		await openAnalysis(page);
 		await importText(page, "1. e4 e5 *");
@@ -207,18 +214,33 @@ test.describe("the engine", () => {
 		expect(ranks).toEqual(["1", "2", "3"]);
 	});
 
-	test("hovering a PV previews its position and clicking it plays the line", async ({ page }) => {
+	test("hovering a PV previews its position and clicking it plays the line", async ({
+		page,
+		browserName,
+	}) => {
 		await openAnalysis(page);
 		await switchEngineOn(page);
 		const firstMove = page.getByTestId("pv-line").first().locator(".pv-move").first();
 		await expect(firstMove).toBeVisible({ timeout: ENGINE_TIMEOUT });
-		const label = ((await firstMove.textContent()) ?? "").trim();
 		await firstMove.hover();
 		const preview = page.getByTestId("pv-preview");
 		await expect(preview.locator("cg-board piece")).toHaveCount(32);
 		await expect(preview.locator("cg-board square.last-move")).toHaveCount(2);
-		await firstMove.click();
-		await expect(currentMove(page)).toHaveText(label);
+		if (browserName === "chromium") {
+			await page.keyboard.press("Shift");
+			await firstMove.focus();
+			const focusRing = await firstMove.evaluate((element) => ({
+				visible: element.matches(":focus-visible"),
+				outline: getComputedStyle(element).outlineStyle,
+			}));
+			expect(focusRing).toEqual({ visible: true, outline: "solid" });
+		}
+		const played = await firstMove.evaluate((element) => {
+			const label = element.textContent?.trim() ?? "";
+			(element as HTMLButtonElement).click();
+			return label;
+		});
+		await expect(currentMove(page)).toHaveText(played);
 	});
 
 	test("an imported PGN exports with the engine's evaluations", async ({ page }) => {

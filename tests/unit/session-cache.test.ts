@@ -23,6 +23,14 @@ describe("EngineSessionCache", () => {
 		expect(fake.engines).toHaveLength(1);
 	});
 
+	it("treats one thread and an unset Threads as the same options", async () => {
+		const fake = fakeConnections();
+		const cache = new EngineSessionCache(new WorkerEngineHost(fake.connect));
+		const first = await cache.ensure(pin, { hashMb: 64 });
+		expect(await cache.ensure(pin, { hashMb: 64, threads: 1 })).toBe(first);
+		expect(fake.engines).toHaveLength(1);
+	});
+
 	it("starts a new worker when the Hash or the pin changes", async () => {
 		const fake = fakeConnections();
 		const cache = new EngineSessionCache(new WorkerEngineHost(fake.connect));

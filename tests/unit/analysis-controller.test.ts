@@ -113,6 +113,44 @@ describe("AnalysisController", () => {
 		expect(root.eval?.score).toEqual({ kind: "cp", value: 41 });
 	});
 
+	it("stores a Black-to-move evaluation from the side to move and exports it from White's side", async () => {
+		const { engine, controller } = await setup();
+		controller.move("e2e4");
+		await controller.setEngine(true);
+		await waitForGo(engine, 1);
+		engine.emit("info depth 10 multipv 1 score cp -35 pv e7e5");
+		await vi.waitFor(() => expect(controller.state.lines).toHaveLength(1));
+		const node = controller.state.tree.node(controller.state.current);
+		expect(node.eval?.score).toEqual({ kind: "cp", value: -35 });
+		expect(controller.state.lines[0]?.score).toEqual({ kind: "cp", value: 35 });
+		expect(controller.exportPgn(true)).toContain("1. e4 { [%eval 0.35,10] } *");
+	});
+
+	it("bumps the revision only when a line changes a stored evaluation", async () => {
+		const { engine, controller } = await setup();
+		await controller.setEngine(true);
+		await waitForGo(engine, 1);
+		engine.emit("info depth 10 multipv 1 score cp 30 pv e2e4");
+		await vi.waitFor(() => expect(controller.state.lines).toHaveLength(1));
+		const revision = controller.state.revision;
+		engine.emit("info depth 9 multipv 1 score cp 10 pv d2d4");
+		engine.emit("info depth 11 multipv 1 score cp 50 lowerbound pv e2e4");
+		await vi.waitFor(() => expect(controller.state.lines[0]?.depth).toBe(11));
+		expect(controller.state.revision).toBe(revision);
+		engine.emit("info depth 12 multipv 1 score cp 31 pv e2e4");
+		await vi.waitFor(() => expect(controller.state.revision).toBe(revision + 1));
+	});
+
+	it("reports a crash while applying options with the friendly crash message", async () => {
+		const { session, controller } = await setup();
+		session.abort("crashed");
+		await controller.setEngine(true);
+		expect(controller.state.engine).toEqual({
+			kind: "failed",
+			message: "The engine crashed. Switch it on again to restart it.",
+		});
+	});
+
 	it("sets UCI_Chess960 for an FRC start and clears it for a standard one", async () => {
 		const { engine, controller } = await setup();
 		expect(controller.load({ kind: "frc", scharnagl: 0 }).ok).toBe(true);
@@ -254,7 +292,11 @@ describe("AnalysisController", () => {
 		controller.move("e7e5");
 		const [, e4] = controller.state.tree.mainline();
 		if (e4 === undefined) throw new Error("e4 expected");
+		const published: number[] = [];
+		controller.subscribe((state) => published.push(state.current));
+		published.length = 0;
 		controller.deleteFrom(e4);
+		expect(published).toEqual([controller.state.tree.root]);
 		expect(controller.state.current).toBe(controller.state.tree.root);
 		expect(controller.state.tree.mainline()).toHaveLength(1);
 	});

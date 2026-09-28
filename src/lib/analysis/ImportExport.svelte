@@ -6,6 +6,7 @@ import type { ImportError, ImportedGame } from "$lib/chess/types";
 import type { Fen } from "$lib/engine/types";
 import type { AnalysisController } from "./controller";
 import { analysisLink } from "./hash-link";
+import { pasteKind } from "./paste-kind";
 
 interface Props {
 	controller: AnalysisController;
@@ -14,13 +15,6 @@ interface Props {
 }
 
 let { controller, fen, oncopy }: Props = $props();
-
-const MAX_FEN_LENGTH = 256;
-
-const looksLikeFen = (input: string): boolean => {
-	const trimmed = input.trim();
-	return trimmed.length <= MAX_FEN_LENGTH && !/[\n[]/.test(trimmed) && trimmed.includes("/");
-};
 
 let text = $state("");
 let games = $state.raw<readonly ImportedGame[]>([]);
@@ -76,7 +70,7 @@ const importText = () => {
 		error = "Paste a FEN or a PGN first";
 		return;
 	}
-	if (looksLikeFen(text)) {
+	if (pasteKind(text) === "fen") {
 		importFen(text);
 		return;
 	}

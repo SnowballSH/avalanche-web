@@ -63,7 +63,7 @@ licence.
 
 ## Vendored engine bindings
 
-`vendor/avalanche-web-abi1/` is Avalanche's `web/src` and MIT `LICENSE` at
+`vendor/avalanche-web-abi1/` is Avalanche's `web/src` and GPL `LICENSE` at
 the commit named in its `SOURCE` file, copied verbatim; `abi.json` next to
 them records the wasm import and export names and kinds that
 `WebAssembly.Module.imports`/`exports` report for the build of that commit.

@@ -65,7 +65,7 @@ describe("licence notices", () => {
 		expect(site?.licence).toBe(readJson("package.json").license);
 	});
 
-	it("credits the Avalanche engine and bindings with the vendored MIT notice", () => {
+	it("credits the Avalanche engine and bindings with the vendored GPL notice", () => {
 		const vendored = readFileSync(
 			new URL("../../vendor/avalanche-web-abi1/LICENSE", import.meta.url),
 			"utf8",
@@ -81,7 +81,7 @@ describe("licence notices", () => {
 		expect(notices.find((entry) => entry.id === "avalanche-web-bindings")?.source).toContain(
 			commit,
 		);
-		expect(vendored).toMatch(/Copyright \(c\) 2026 Yinuo Huang/);
+		expect(vendored).toMatch(licenceMarkers["GPL-3.0-only"] as RegExp);
 	});
 
 	it("credits the cburnett pieces under the GPL", () => {

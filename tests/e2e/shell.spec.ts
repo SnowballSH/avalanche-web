@@ -43,5 +43,5 @@ test("the footer links to the GPL source and the licences page", async ({ page }
 	await expect(page.getByRole("heading", { level: 1, name: "Licences" })).toBeVisible();
 	const engine = page.locator('[data-testid="licence-notice"][data-notice-id="avalanche"]');
 	await engine.getByText("Licence text").click();
-	await expect(engine.locator("pre")).toContainText("Copyright (c) 2026 Yinuo Huang");
+	await expect(engine.locator("pre")).toContainText("GNU GENERAL PUBLIC LICENSE");
 });

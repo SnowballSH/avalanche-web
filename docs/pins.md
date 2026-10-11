@@ -86,7 +86,9 @@ Two local builds, including one with an empty Zig global cache, produced the
 same 25 617 474-byte wasm with sha256
 `c3ec3895cc29fa53e55177f5206342ebd49471614e0210e2b1bc24407244f76e`.
 The `.zst` and `.gz` siblings also matched byte for byte. The first uncached
-CI build is compared with these measurements in the pull request.
+Ubuntu CI build (run `38163250703`, head `7cf18c5`) emitted
+`v5.0.0-3274054 c3ec3895cc29fa53e55177f5206342ebd49471614e0210e2b1bc24407244f76e 25617474`,
+matching the local wasm digest and byte count.
 
 ## CI
 

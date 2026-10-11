@@ -1,13 +1,13 @@
 FROM docker.io/library/node:26.10.0-trixie@sha256:a723b54c35a76e947095a20a67d39585bb09c862e6b1adeb8a9f518f95e34fb0 AS pins
 ARG TARGETARCH
-ARG ZIG_VERSION=0.16.0
+ARG ZIG_VERSION=0.17.0
 RUN apt-get update \
  && apt-get install -y --no-install-recommends zstd \
  && rm -rf /var/lib/apt/lists/*
 RUN set -eu; \
     case "${TARGETARCH:-$(dpkg --print-architecture)}" in \
-      amd64) zig_arch=x86_64; zig_sha256=70e49664a74374b48b51e6f3fdfbf437f6395d42509050588bd49abe52ba3d00 ;; \
-      arm64) zig_arch=aarch64; zig_sha256=ea4b09bfb22ec6f6c6ceac57ab63efb6b46e17ab08d21f69f3a48b38e1534f17 ;; \
+      amd64) zig_arch=x86_64; zig_sha256=1cbe9df9f27e6b78d14ccbca43b6703a404ef79ef1c463de901d7f088d4e2026 ;; \
+      arm64) zig_arch=aarch64; zig_sha256=9e8d11661d4ae3bd57702a3832781e23ad151dde5798e16a5ccd503f65234ff8 ;; \
       *) echo "no pinned Zig for ${TARGETARCH}" >&2; exit 1 ;; \
     esac; \
     tarball="zig-${zig_arch}-linux-${ZIG_VERSION}.tar.xz"; \
@@ -20,7 +20,7 @@ RUN set -eu; \
     zig version
 WORKDIR /src
 COPY engines/pins.json engines/
-COPY vendor/avalanche-web-abi1/abi.json vendor/avalanche-web-abi1/
+COPY vendor/avalanche-web-abi2/abi.json vendor/avalanche-web-abi2/
 COPY src/lib/pins/abi-check.ts src/lib/pins/catalogue-source.ts src/lib/pins/types.ts src/lib/pins/
 COPY scripts/build-pins.sh scripts/build-avalanche-wasm.sh scripts/check-abi.ts scripts/pins-catalogue.ts scripts/
 RUN --mount=type=cache,id=avalanche-web-zig,target=/root/.cache/zig \

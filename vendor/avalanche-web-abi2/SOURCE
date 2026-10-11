@@ -1,3 +1,3 @@
 repository: https://github.com/SnowballSH/Avalanche
-commit: 8314b438331cf58faf55f84ea7e785186f3f248e
+commit: 327405485fd943dbf0ccaac5539d3841d6e3e1a4
 paths: web/src -> src, LICENSE -> LICENSE

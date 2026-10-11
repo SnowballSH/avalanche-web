@@ -7,7 +7,7 @@ passes them through untouched.
 
 ## Stages
 
-1. **`pins`** (`node:26` plus Zig 0.16.0, downloaded from ziglang.org and
+1. **`pins`** (`node:26` plus Zig 0.17.0, downloaded from ziglang.org and
    checked against its pinned sha256 for the build architecture) runs
    `scripts/build-pins.sh /pins`: every catalogue pin is built from a clean
    checkout of its commit with `-Dversion=<pin id>`, gated on the recorded

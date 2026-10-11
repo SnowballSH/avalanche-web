@@ -14,7 +14,7 @@
 # checkout is a `git archive` of the commit into a scratch directory.
 set -euo pipefail
 
-zig_version=0.16.0
+zig_version=0.17.0
 upstream="https://github.com/SnowballSH/Avalanche"
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 

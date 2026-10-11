@@ -1,8 +1,8 @@
 import type {
 	ClientMessage,
 	WorkerMessage,
-} from "../../../vendor/avalanche-web-abi1/src/protocol.ts";
-import { serveEngine } from "../../../vendor/avalanche-web-abi1/src/worker-host.ts";
+} from "../../../vendor/avalanche-web-abi2/src/protocol.ts";
+import { serveEngine } from "../../../vendor/avalanche-web-abi2/src/worker-host.ts";
 import { createPinLoader } from "./pin-loader";
 
 interface DedicatedWorkerScope {

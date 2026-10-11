@@ -11,17 +11,17 @@ import type { PinCatalogData, PinEntry } from "../../src/lib/pins/types";
 import { FakeEngine } from "./helpers/fake-engine";
 
 const pinA: PinEntry = {
-	id: "master-9b7ee6f",
-	commit: "9b7ee6ff829dcfb5ee5e48d8dcb83bd44c26a642",
+	id: "v5.0.0-3274054",
+	commit: "327405485fd943dbf0ccaac5539d3841d6e3e1a4",
 	label: "A",
-	date: "2026-09-27",
+	date: "2026-10-11",
 	sha256: "ab".repeat(32),
 	bytes: 100,
 };
 
 const pinB: PinEntry = { ...pinA, id: "master-910711f", label: "B", sha256: "cd".repeat(32) };
 
-const catalogue: PinCatalogData = { abi: 1, pins: [pinA, pinB] };
+const catalogue: PinCatalogData = { abi: 2, pins: [pinA, pinB] };
 
 const readySession = async (): Promise<UciSession> => {
 	const engine = new FakeEngine();

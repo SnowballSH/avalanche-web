@@ -3,9 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type BrowserType, expect, type Page, type Route, test } from "@playwright/test";
 
-const PIN_ID = "master-9b7ee6f";
-const PIN_LABEL = "4.0.0+ (master, 2026-09-27)";
-const PIN_COMMIT = "9b7ee6ff829dcfb5ee5e48d8dcb83bd44c26a642";
+const PIN_ID = "v5.0.0-3274054";
+const PIN_LABEL = "5.0.0";
+const PIN_COMMIT = "327405485fd943dbf0ccaac5539d3841d6e3e1a4";
 const WASM_URL = `**/engines/${PIN_ID}/avalanche.wasm`;
 const DOWNLOAD_TIMEOUT = 60_000;
 
@@ -67,7 +67,7 @@ const persistentContext = async (browserType: BrowserType, baseURL: string | und
 
 const serveCatalogue = async (page: Page, pins: readonly object[]) => {
 	await page.route("**/engines/pins.json", (route) =>
-		route.fulfill({ json: { abi: 1, pins }, headers: { "Cache-Control": "no-cache" } }),
+		route.fulfill({ json: { abi: 2, pins }, headers: { "Cache-Control": "no-cache" } }),
 	);
 };
 
@@ -75,12 +75,12 @@ test("each row shows its label, commit link, date, size and state", async ({ pag
 	await openEngines(page);
 	const row = pinRow(page, PIN_ID);
 	await expect(row).toContainText(PIN_LABEL);
-	await expect(row.getByRole("link", { name: "9b7ee6f" })).toHaveAttribute(
+	await expect(row.getByRole("link", { name: "3274054" })).toHaveAttribute(
 		"href",
 		`https://github.com/SnowballSH/Avalanche/commit/${PIN_COMMIT}`,
 	);
-	await expect(row.getByTestId("pin-date")).toHaveText("2026-09-27");
-	await expect(row.getByTestId("pin-size")).toHaveText("25.7 MB");
+	await expect(row.getByTestId("pin-date")).toHaveText("2026-10-11");
+	await expect(row.getByTestId("pin-size")).toHaveText("25.6 MB");
 	await expect(pinState(page, PIN_ID)).toHaveText("Not downloaded");
 	await expect(row.getByRole("radio", { name: "Default" })).toBeChecked();
 	await expect(usage(page)).toContainText("Stored in this browser: 0 B");
@@ -96,7 +96,7 @@ test("a download shows its progress, then ready; delete returns it to absent", a
 	await expect(pinRow(page, PIN_ID).getByRole("progressbar")).toBeVisible();
 	wasm.release();
 	await expect(pinState(page, PIN_ID)).toHaveText("Ready", { timeout: DOWNLOAD_TIMEOUT });
-	await expect(usage(page)).toContainText("Stored in this browser: 25.7 MB");
+	await expect(usage(page)).toContainText("Stored in this browser: 25.6 MB");
 
 	await pinRow(page, PIN_ID).getByRole("button", { name: "Delete" }).click();
 	await expect(pinState(page, PIN_ID)).toHaveText("Not downloaded");
@@ -135,7 +135,7 @@ test("a cached pin missing from the catalogue is marked stale and can be deleted
 	await page.reload();
 	await expect(pinState(page, PIN_ID)).toHaveText("Stale");
 	await expect(pinRow(page, PIN_ID)).toContainText(
-		"This version is no longer offered by the site. Delete it to free 25.7 MB.",
+		"This version is no longer offered by the site. Delete it to free 25.6 MB.",
 	);
 	await expect(pinState(page, successor.id)).toHaveText("Not downloaded");
 

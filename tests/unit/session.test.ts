@@ -45,7 +45,7 @@ describe("UciSessionRuntime handshake", () => {
 			kind: "spin",
 			default: 16,
 			min: 1,
-			max: 1048576,
+			max: 2047,
 		});
 		expect(capabilities.threadsMax).toBe(1);
 		expect(capabilities.multiPvMax).toBe(256);

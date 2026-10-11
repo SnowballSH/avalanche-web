@@ -4,7 +4,7 @@
 // recorded for the site's vendored bindings. Exits 1 and lists every difference
 // on a mismatch.
 //
-//   node scripts/check-abi.ts <path/to/avalanche.wasm> [--abi vendor/avalanche-web-abi1/abi.json]
+//   node scripts/check-abi.ts <path/to/avalanche.wasm> [--abi vendor/avalanche-web-abi2/abi.json]
 
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -16,7 +16,7 @@ import {
 } from "../src/lib/pins/abi-check.ts";
 
 const DEFAULT_ABI = fileURLToPath(
-	new URL("../vendor/avalanche-web-abi1/abi.json", import.meta.url),
+	new URL("../vendor/avalanche-web-abi2/abi.json", import.meta.url),
 );
 
 interface Arguments {

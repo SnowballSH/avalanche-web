@@ -7,7 +7,7 @@
 #
 #   scripts/build-pins.sh <outdir>
 #
-# Needs git, zig 0.16.0, node, zstd and gzip. See docs/pins.md.
+# Needs git, zig 0.17.0, node, zstd and gzip. See docs/pins.md.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

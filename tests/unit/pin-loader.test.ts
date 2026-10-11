@@ -4,12 +4,12 @@ import { PIN_CACHE_NAME, pinCacheKey } from "../../src/lib/pins/cache-key";
 import type { PinEntry } from "../../src/lib/pins/types";
 
 const pin: PinEntry = {
-	id: "master-9b7ee6f",
-	commit: "9b7ee6ff829dcfb5ee5e48d8dcb83bd44c26a642",
-	label: "4.0.0+ (master, 2026-09-27)",
-	date: "2026-09-27",
+	id: "v5.0.0-3274054",
+	commit: "327405485fd943dbf0ccaac5539d3841d6e3e1a4",
+	label: "5.0.0",
+	date: "2026-10-11",
 	sha256: "ab".repeat(32),
-	bytes: 25_698_005,
+	bytes: 25_617_474,
 };
 
 function fakeCaches(entries: ReadonlyMap<string, Response>): {

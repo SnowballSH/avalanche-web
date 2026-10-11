@@ -26,13 +26,13 @@ npm run dev
 | `npm run lint` | Biome formatting, lint and import-order check |
 | `npm run format` | apply Biome's safe fixes |
 | `npm test` | Vitest unit tests in `tests/unit` |
-| `npm run test:integration` | the real engine wasm in a Node worker thread; needs `scripts/fetch-fixture-wasm.sh` (Zig 0.16.0) once, or `AVALANCHE_FIXTURE_WASM` pointing at a built pin |
+| `npm run test:integration` | the real engine wasm in a Node worker thread; needs `scripts/fetch-fixture-wasm.sh` (Zig 0.17.0) once, or `AVALANCHE_FIXTURE_WASM` pointing at a built pin |
 | `npm run test:e2e` | Playwright against a production build, Chromium and WebKit |
 | `npm run test:e2e:served` | Playwright against the built container image, served by `scripts/serve-image.sh` |
 | `npm run build` | static build into `build/` |
 
 CI runs the same five checks on every push, to any branch, and every pull request,
-then builds every pin with Zig 0.16.0 (`scripts/build-pins.sh`, cached on the
+then builds every pin with Zig 0.17.0 (`scripts/build-pins.sh`, cached on the
 catalogue and build scripts), gates each build on the recorded ABI, and runs the
 integration tests against the built pin. A second job builds the container
 image and runs the served-image suite against it; on `main` the tested image

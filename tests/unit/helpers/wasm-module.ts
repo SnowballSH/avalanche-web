@@ -2,6 +2,7 @@ export interface SyntheticModuleShape {
 	readonly imports: readonly string[];
 	readonly exports: readonly string[];
 	readonly exportMemory?: boolean;
+	readonly exportStackPointer?: boolean;
 }
 
 const MAGIC = [0x00, 0x61, 0x73, 0x6d];
@@ -11,11 +12,13 @@ const SECTION_TYPE = 1;
 const SECTION_IMPORT = 2;
 const SECTION_FUNCTION = 3;
 const SECTION_MEMORY = 5;
+const SECTION_GLOBAL = 6;
 const SECTION_EXPORT = 7;
 const SECTION_CODE = 10;
 
 const KIND_FUNCTION = 0x00;
 const KIND_MEMORY = 0x02;
+const KIND_GLOBAL = 0x03;
 
 function uleb(value: number): number[] {
 	const bytes: number[] = [];
@@ -55,6 +58,7 @@ export function synthesizeWasm(shape: SyntheticModuleShape): Uint8Array<ArrayBuf
 		...uleb(shape.imports.length + index),
 	]);
 	if (shape.exportMemory ?? true) exportEntries.push([...name("memory"), KIND_MEMORY, 0]);
+	if (shape.exportStackPointer) exportEntries.push([...name("__stack_pointer"), KIND_GLOBAL, 0]);
 	const emptyBody = [0x02, 0x00, 0x0b];
 
 	return Uint8Array.from([
@@ -64,6 +68,9 @@ export function synthesizeWasm(shape: SyntheticModuleShape): Uint8Array<ArrayBuf
 		...section(SECTION_IMPORT, vector(importEntries)),
 		...section(SECTION_FUNCTION, vector(Array.from({ length: functionCount }, () => [0]))),
 		...section(SECTION_MEMORY, vector([[0x00, 0x01]])),
+		...(shape.exportStackPointer
+			? section(SECTION_GLOBAL, vector([[0x7f, 0x01, 0x41, 0x00, 0x0b]]))
+			: []),
 		...section(SECTION_EXPORT, vector(exportEntries)),
 		...section(SECTION_CODE, vector(Array.from({ length: functionCount }, () => emptyBody))),
 	]);

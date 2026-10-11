@@ -2,7 +2,7 @@
 // Prints the import and export names and kinds of a wasm module as JSON, sorted,
 // in the form WebAssembly.Module.imports/exports report them.
 //
-//   node scripts/record-abi.mjs path/to/avalanche.wasm > vendor/avalanche-web-abi1/abi.json
+//   node scripts/record-abi.mjs path/to/avalanche.wasm > vendor/avalanche-web-abi2/abi.json
 
 import { readFile } from "node:fs/promises";
 

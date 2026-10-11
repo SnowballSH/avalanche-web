@@ -1,6 +1,6 @@
 import { pinCacheKey } from "$lib/pins/cache-key";
 import type { PinEntry } from "$lib/pins/types";
-import { AvalancheClient, webWorkerPort } from "../../../vendor/avalanche-web-abi1/src/client.ts";
+import { AvalancheClient, webWorkerPort } from "../../../vendor/avalanche-web-abi2/src/client.ts";
 import { PinUnavailableError } from "./pin-loader";
 import { UciSessionRuntime } from "./session";
 import type {

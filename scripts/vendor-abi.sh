@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Vendors the Avalanche web bindings (web/src and LICENSE) from one commit into
-# vendor/avalanche-web-abi1, or with --check verifies the vendored tree matches it.
+# vendor/avalanche-web-abi2, or with --check verifies the vendored tree matches it.
 #
 #   scripts/vendor-abi.sh <commit> [--check]
 #
@@ -29,7 +29,7 @@ done
 
 upstream="https://github.com/SnowballSH/Avalanche"
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-target="$root/vendor/avalanche-web-abi1"
+target="$root/vendor/avalanche-web-abi2"
 scratch="$(mktemp -d)"
 trap 'rm -rf "$scratch"' EXIT
 

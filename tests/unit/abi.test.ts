@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import abi from "../../vendor/avalanche-web-abi1/abi.json";
-import { assertAvalancheExports } from "../../vendor/avalanche-web-abi1/src/abi.ts";
+import abi from "../../vendor/avalanche-web-abi2/abi.json";
+import { assertAvalancheExports } from "../../vendor/avalanche-web-abi2/src/abi.ts";
 
 const importNames = abi.imports.map((entry) => `${entry.module}.${entry.name}`);
 const exportNames = abi.exports.map((entry) => entry.name);
@@ -20,11 +20,16 @@ describe("recorded ABI", () => {
 		const exports = Object.fromEntries(
 			abi.exports.map((entry) => [
 				entry.name,
-				entry.kind === "memory" ? new WebAssembly.Memory({ initial: 1 }) : () => 0,
+				entry.kind === "memory"
+					? new WebAssembly.Memory({ initial: 1 })
+					: entry.kind === "global"
+						? new WebAssembly.Global({ value: "i32", mutable: true }, 0)
+						: () => 0,
 			]),
 		);
 		expect(() => assertAvalancheExports(exports)).not.toThrow();
 		expect(exportNames).toContain("memory");
+		expect(abi.exports).toContainEqual({ name: "__stack_pointer", kind: "global" });
 	});
 
 	it("rejects a module missing an export", () => {

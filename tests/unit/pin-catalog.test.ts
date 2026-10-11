@@ -3,15 +3,15 @@ import { createPinCatalog, parseServedPinCatalogue } from "../../src/lib/pins/ca
 import { PinCatalogueError } from "../../src/lib/pins/catalogue-source";
 
 const firstPin = {
-	id: "master-9b7ee6f",
-	commit: "9b7ee6ff829dcfb5ee5e48d8dcb83bd44c26a642",
-	label: "4.0.0+ (master, 2026-09-27)",
-	date: "2026-09-27",
+	id: "v5.0.0-3274054",
+	commit: "327405485fd943dbf0ccaac5539d3841d6e3e1a4",
+	label: "5.0.0",
+	date: "2026-10-11",
 	sha256: "ab".repeat(32),
-	bytes: 25_698_005,
+	bytes: 25_617_474,
 };
 
-const served = { abi: 1, pins: [firstPin] };
+const served = { abi: 2, pins: [firstPin] };
 
 function rejection(data: unknown): string {
 	try {
@@ -30,7 +30,7 @@ describe("parseServedPinCatalogue", () => {
 
 	it("drops unknown fields", () => {
 		const result = parseServedPinCatalogue({
-			abi: 1,
+			abi: 2,
 			pins: [{ ...firstPin, extra: true }],
 			generator: "x",
 		});
@@ -38,22 +38,22 @@ describe("parseServedPinCatalogue", () => {
 	});
 
 	it("rejects a sha256 that is not 64 lowercase hex characters", () => {
-		expect(rejection({ abi: 1, pins: [{ ...firstPin, sha256: "abc" }] })).toMatch(/sha256/);
+		expect(rejection({ abi: 2, pins: [{ ...firstPin, sha256: "abc" }] })).toMatch(/sha256/);
 		expect(
-			rejection({ abi: 1, pins: [{ ...firstPin, sha256: firstPin.sha256.toUpperCase() }] }),
+			rejection({ abi: 2, pins: [{ ...firstPin, sha256: firstPin.sha256.toUpperCase() }] }),
 		).toMatch(/sha256/);
 	});
 
 	it("rejects bytes that are not a positive integer", () => {
-		expect(rejection({ abi: 1, pins: [{ ...firstPin, bytes: 0 }] })).toMatch(/bytes/);
-		expect(rejection({ abi: 1, pins: [{ ...firstPin, bytes: 1.5 }] })).toMatch(/bytes/);
-		expect(rejection({ abi: 1, pins: [{ ...firstPin, bytes: "51" }] })).toMatch(/bytes/);
+		expect(rejection({ abi: 2, pins: [{ ...firstPin, bytes: 0 }] })).toMatch(/bytes/);
+		expect(rejection({ abi: 2, pins: [{ ...firstPin, bytes: 1.5 }] })).toMatch(/bytes/);
+		expect(rejection({ abi: 2, pins: [{ ...firstPin, bytes: "51" }] })).toMatch(/bytes/);
 	});
 
 	it("applies the source rules too", () => {
-		expect(rejection({ abi: 2, pins: [firstPin] })).toMatch(/abi/);
+		expect(rejection({ abi: 1, pins: [firstPin] })).toMatch(/abi/);
 		expect(
-			rejection({ abi: 1, pins: [firstPin, { ...firstPin, commit: "b".repeat(40) }] }),
+			rejection({ abi: 2, pins: [firstPin, { ...firstPin, commit: "b".repeat(40) }] }),
 		).toMatch(/duplicate id/);
 	});
 });
@@ -88,7 +88,7 @@ describe("createPinCatalog", () => {
 
 	it("rejects a catalogue missing the served measurements", async () => {
 		const { sha256: _sha256, ...unmeasured } = firstPin;
-		const { fetchFn } = fetchReturning(() => Response.json({ abi: 1, pins: [unmeasured] }));
+		const { fetchFn } = fetchReturning(() => Response.json({ abi: 2, pins: [unmeasured] }));
 		await expect(createPinCatalog(fetchFn).load()).rejects.toThrowError(/sha256/);
 	});
 });

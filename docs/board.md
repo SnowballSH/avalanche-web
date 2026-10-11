@@ -96,6 +96,10 @@ zero. The winner is the opposite of the side to move at that node.
 clamped to [-1, 1], with any mate as ±1. `evalBarFraction` maps it onto the
 bar and clamps centipawn scores to [0.05, 0.95] so a sliver of the losing
 colour always remains, while a mate or a checkmate fills the bar.
+Avalanche 5.0.0 reports normalized centipawns: 100 cp is an even chance of
+winning at move 32, corresponding to about 139 internal centipawns. The curve
+still uses the reported value, so the same position can show a smaller bar
+than with the retired engine pin.
 `formatScore` renders `+1.23`, `0.00`, `#4`, `-#4`, and `1-0` or `0-1` for
 a checkmate on the board.
 

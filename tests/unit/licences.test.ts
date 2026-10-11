@@ -67,11 +67,11 @@ describe("licence notices", () => {
 
 	it("credits the Avalanche engine and bindings with the vendored GPL notice", () => {
 		const vendored = readFileSync(
-			new URL("../../vendor/avalanche-web-abi1/LICENSE", import.meta.url),
+			new URL("../../vendor/avalanche-web-abi2/LICENSE", import.meta.url),
 			"utf8",
 		);
 		const source = readFileSync(
-			new URL("../../vendor/avalanche-web-abi1/SOURCE", import.meta.url),
+			new URL("../../vendor/avalanche-web-abi2/SOURCE", import.meta.url),
 			"utf8",
 		);
 		const commit = /^commit:\s*(\w+)$/m.exec(source)?.[1] ?? "";

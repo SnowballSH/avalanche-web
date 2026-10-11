@@ -2,7 +2,7 @@ import { expect, type Page, test } from "@playwright/test";
 import { type CspWatch, watchCsp } from "./helpers/csp-watch";
 
 const ENGINE_TIMEOUT = 60_000;
-const PIN_ID = "master-9b7ee6f";
+const PIN_ID = "v5.0.0-3274054";
 
 test.describe.configure({ timeout: 120_000 });
 
@@ -107,5 +107,11 @@ test("the licences page renders every notice from a deep link", async ({ page })
 			page.locator(`[data-testid="licence-notice"][data-notice-id="${id}"]`),
 		).toBeVisible();
 	}
+	await expect(
+		page.locator('[data-testid="licence-notice"][data-notice-id="avalanche"]'),
+	).toContainText("Dianguang-5");
+	await expect(
+		page.locator('[data-testid="licence-notice"][data-notice-id="avalanche-web-bindings"]'),
+	).toContainText("3274054");
 	await expect(page.getByRole("navigation", { name: "Legal" })).toBeVisible();
 });

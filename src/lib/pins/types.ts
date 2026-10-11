@@ -2,7 +2,7 @@ export type PinId = string;
 
 export type Sha256Hex = string;
 
-export type AbiVersion = 1;
+export type AbiVersion = 2;
 
 export interface PinEntry {
 	readonly id: PinId;

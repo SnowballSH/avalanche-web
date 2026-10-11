@@ -34,7 +34,7 @@ const game: SavedGame = {
 		settings: {
 			side: "random",
 			start: { kind: "frc", scharnagl: 42 },
-			pinId: "master-9b7ee6f",
+			pinId: "v5.0.0-3274054",
 			strength: { kind: "elo", elo: 1800 },
 			timeControl: { baseMs: 180_000, incrementMs: 2_000 },
 			engineLimit: { kind: "nodes", value: 5_000 },

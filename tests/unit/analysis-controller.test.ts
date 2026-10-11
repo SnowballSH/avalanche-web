@@ -327,10 +327,10 @@ describe("AnalysisController", () => {
 
 	it("never starts a session for a connection still downloading when the page is left", async () => {
 		const pin: PinEntry = {
-			id: "master-9b7ee6f",
-			commit: "9b7ee6ff829dcfb5ee5e48d8dcb83bd44c26a642",
+			id: "v5.0.0-3274054",
+			commit: "327405485fd943dbf0ccaac5539d3841d6e3e1a4",
 			label: "A",
-			date: "2026-09-27",
+			date: "2026-10-11",
 			sha256: "ab".repeat(32),
 			bytes: 100,
 		};
@@ -338,7 +338,7 @@ describe("AnalysisController", () => {
 		const ensure = vi.fn(async () => (await setup()).session);
 		const connector = new EngineConnector(
 			{
-				catalogue: async () => ({ abi: 1, pins: [pin] }),
+				catalogue: async () => ({ abi: 2, pins: [pin] }),
 				defaultPin: (data) => data.pins[0] ?? null,
 				download: () => download.promise,
 				ensure,

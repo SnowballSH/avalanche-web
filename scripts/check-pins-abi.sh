@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Gates every built pin in <outdir> on the recorded ABI. Fails when the catalogue
 # lists no pin, when a pin's wasm is missing, or when any wasm's imports or exports
-# differ from vendor/avalanche-web-abi1/abi.json.
+# differ from vendor/avalanche-web-abi2/abi.json.
 #
 #   scripts/check-pins-abi.sh <outdir>
 set -euo pipefail

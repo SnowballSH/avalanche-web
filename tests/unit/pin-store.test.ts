@@ -22,14 +22,14 @@ function pinFor(id: string, bytes: Uint8Array): PinEntry {
 		id,
 		commit: id.padEnd(40, "0"),
 		label: id,
-		date: "2026-09-27",
+		date: "2026-10-11",
 		sha256: sha256(bytes),
 		bytes: bytes.length,
 	};
 }
 
 const firstBytes = wasmBytes(1000, 1);
-const firstPin = pinFor("master-9b7ee6f", firstBytes);
+const firstPin = pinFor("v5.0.0-3274054", firstBytes);
 const secondBytes = wasmBytes(400, 2);
 const secondPin = pinFor("master-910711f", secondBytes);
 

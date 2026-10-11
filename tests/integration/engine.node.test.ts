@@ -6,18 +6,18 @@ import { type EngineConnectionFactory, WorkerEngineHost } from "../../src/lib/en
 import type { EngineNotice, SearchInfo, UciSession } from "../../src/lib/engine/types";
 import { parseInfoLine } from "../../src/lib/engine/uci-parse";
 import type { PinEntry } from "../../src/lib/pins/types";
-import { startNodeClient } from "../../vendor/avalanche-web-abi1/src/node/client.ts";
+import { startNodeClient } from "../../vendor/avalanche-web-abi2/src/node/client.ts";
 import { EngineTap } from "./helpers/engine-tap";
 
 const FIXTURE_PATH = process.env.AVALANCHE_FIXTURE_WASM
 	? pathToFileURL(process.env.AVALANCHE_FIXTURE_WASM)
-	: new URL("../../.cache/fixtures/avalanche-9b7ee6f.wasm", import.meta.url);
+	: new URL("../../.cache/fixtures/avalanche-3274054.wasm", import.meta.url);
 
 const pin: PinEntry = {
-	id: "master-9b7ee6f",
-	commit: "9b7ee6ff829dcfb5ee5e48d8dcb83bd44c26a642",
-	label: "4.0.0+ (master, 2026-09-27)",
-	date: "2026-09-27",
+	id: "v5.0.0-3274054",
+	commit: "327405485fd943dbf0ccaac5539d3841d6e3e1a4",
+	label: "5.0.0",
+	date: "2026-10-11",
 	sha256: "fixture",
 	bytes: 0,
 };
@@ -71,7 +71,7 @@ async function collect(infos: AsyncIterable<SearchInfo>): Promise<SearchInfo[]> 
 	return seen;
 }
 
-describe("EngineHost against the real 9b7ee6f wasm", () => {
+describe("EngineHost against the real 3274054 wasm", () => {
 	const workers = tappedNodeWorkers();
 	const host = new WorkerEngineHost(workers.connect);
 	const notices: EngineNotice[] = [];
@@ -96,7 +96,18 @@ describe("EngineHost against the real 9b7ee6f wasm", () => {
 	});
 
 	it("completes the handshake and applies Hash", () => {
-		expect(session.capabilities?.options.get("Hash")?.kind).toBe("spin");
+		expect(session.capabilities?.options.get("Hash")).toEqual({
+			kind: "spin",
+			default: 16,
+			min: 1,
+			max: 2047,
+		});
+		expect(session.capabilities?.options.get("EvalScale")).toEqual({
+			kind: "spin",
+			default: 1000,
+			min: 500,
+			max: 2000,
+		});
 		expect(session.capabilities?.threadsMax).toBe(1);
 		expect(session.capabilities?.multiPvMax).toBeGreaterThan(1);
 		expect(host.effectiveHashMb).toBe(64);
@@ -187,12 +198,14 @@ describe("EngineHost against the real 9b7ee6f wasm", () => {
 	});
 
 	it("keeps the old table and reports it when a Hash allocation fails", async () => {
-		session = await host.restart({ hashMb: 1048576 });
-		expect(host.effectiveHashMb).toBe(16);
+		session = await host.restart({ hashMb: 1024 });
+		expect(host.effectiveHashMb).toBe(1024);
+		await session.setOption("Hash", 2047);
+		expect(host.effectiveHashMb).toBe(1024);
 		expect(notices.at(-1)).toEqual({
 			kind: "hash-allocation-failed",
-			requestedMb: 1048576,
-			effectiveMb: 16,
+			requestedMb: 2047,
+			effectiveMb: 1024,
 		});
 		await session.position(START_FEN, []);
 		const handle = session.search({ depth: 2 });

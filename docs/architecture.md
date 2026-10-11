@@ -52,7 +52,7 @@ self-hosted through npm.
 The footer links to the GPL source and to `/licences`, a prerendered page
 built from `src/lib/licences/notices.ts`. Every notice's licence text and
 version is imported from the shipped package's own `LICENSE` and
-`package.json` in `node_modules`, or from `vendor/avalanche-web-abi1/LICENSE`
+`package.json` in `node_modules`, or from `vendor/avalanche-web-abi2/LICENSE`
 for the engine and its bindings, so a dependency bump updates the page. The
 list covers what reaches the browser: the direct dependencies plus the
 packages a sourcemap build shows in the client bundle (Svelte, SvelteKit,
@@ -63,7 +63,7 @@ licence.
 
 ## Vendored engine bindings
 
-`vendor/avalanche-web-abi1/` is Avalanche's `web/src` and GPL `LICENSE` at
+`vendor/avalanche-web-abi2/` is Avalanche's `web/src` and GPL `LICENSE` at
 the commit named in its `SOURCE` file, copied verbatim; `abi.json` next to
 them records the wasm import and export names and kinds that
 `WebAssembly.Module.imports`/`exports` report for the build of that commit.
@@ -72,7 +72,10 @@ objects (a local clone through `AVALANCHE_REPO`, else a shallow fetch from
 GitHub) and with `--check` fails on any drift, so the vendored tree can never
 be edited in place. `node scripts/record-abi.mjs <avalanche.wasm>` regenerates
 `abi.json`; a pin whose ABI differs from it belongs to a new ABI version with
-its own vendored directory.
+its own vendored directory. Avalanche 5.0.0 built with Zig 0.17.0 exports
+`__stack_pointer` as a global alongside the four host imports, five callable
+exports, and memory. ABI 2 records that exact surface. The bindings do not
+access the global; the exact ABI gate still rejects any further change.
 
 The pin catalogue, the build that turns each pinned commit into a served
 wasm, and the ABI gate that rejects a mismatching build are described in
@@ -164,9 +167,9 @@ that is no longer the held one is a no-op.
 
 The integration test, `npm run test:integration`, runs
 `tests/integration/engine.node.test.ts` under `vitest.integration.config.ts`
-against the real `master-9b7ee6f` wasm in a Node worker thread. The fixture
+against the real `v5.0.0-3274054` wasm in a Node worker thread. The fixture
 comes from `scripts/fetch-fixture-wasm.sh`, which builds the commit with Zig
-0.16.0 and `-Dversion=master-9b7ee6f` from a scratch checkout of
+0.17.0 and `-Dversion=v5.0.0-3274054` from a scratch checkout of
 `AVALANCHE_REPO` (or a shallow fetch from GitHub) into the git-ignored
 `.cache/fixtures/`, and reuses the file once it exists. CI runs it against
 the pin it has just built, through `AVALANCHE_FIXTURE_WASM`.
@@ -231,10 +234,10 @@ line: `play` → `chess` → `engine` → `pins`, with no cycles.
   the caller could not predict.
 - `BestMove.move` is `null` for `bestmove (none)` and for `bestmove 0000`,
   which is what Avalanche prints when there is no legal move
-  (`search.zig:554`).
+  (`search.zig:621` at the 5.0.0 release commit).
 - The engine's terminal line for a position with no legal moves is
   `info depth 0 score mate 0` (in check) or `info depth 0 score cp N`
-  (stalemate), with no `multipv` and no `pv` (`search.zig:534`). The parser
+  (stalemate), with no `multipv` and no `pv` (`search.zig:601` at the 5.0.0 release commit). The parser
   yields a `SearchInfo` with `multipv: 1` and an empty `pv` for it.
 - `EngineCapabilities.options` maps each advertised option name to its
   `UciOptionSpec`; the derived flags (`threadsMax`, `supportsLimitStrength`,
@@ -425,7 +428,8 @@ and two knights against a bare king do not.
 `drawOfferAccepted(scores)` takes the engine's final score for each of its
 own moves, oldest first, and accepts when there are at least ten and the last
 ten are all exact centipawn scores within ±20; a mate score or a bounded
-score in the window rejects.
+score in the window rejects. Avalanche 5.0.0 reports normalized centipawns,
+so this unchanged ±20 window spans about ±28 internal centipawns.
 
 ### Play (`src/lib/play/types.ts`)
 

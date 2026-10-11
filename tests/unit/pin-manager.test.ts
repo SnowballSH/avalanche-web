@@ -19,12 +19,12 @@ import type { PinCatalogData, PinEntry } from "../../src/lib/pins/types";
 import { FakePinStore, QUOTA_BYTES } from "./helpers/fake-pin-store";
 
 const newest: PinEntry = {
-	id: "master-9b7ee6f",
-	commit: "9b7ee6ff829dcfb5ee5e48d8dcb83bd44c26a642",
-	label: "4.0.0+ (master, 2026-09-27)",
-	date: "2026-09-27",
-	sha256: "c4".repeat(32),
-	bytes: 25_698_005,
+	id: "v5.0.0-3274054",
+	commit: "327405485fd943dbf0ccaac5539d3841d6e3e1a4",
+	label: "5.0.0",
+	date: "2026-10-11",
+	sha256: "c3".repeat(32),
+	bytes: 25_617_474,
 };
 
 const older: PinEntry = {
@@ -36,7 +36,7 @@ const older: PinEntry = {
 	bytes: 24_000_000,
 };
 
-const catalogue: PinCatalogData = { abi: 1, pins: [newest, older] };
+const catalogue: PinCatalogData = { abi: 2, pins: [newest, older] };
 
 class MemoryStorage {
 	readonly items = new Map<string, string>();
@@ -96,16 +96,16 @@ describe("the pin rows", () => {
 	});
 
 	it("formats the commit link, the size and each state", () => {
-		expect(shortCommit(newest.commit)).toBe("9b7ee6f");
+		expect(shortCommit(newest.commit)).toBe("3274054");
 		expect(pinCommitUrl(newest.commit)).toBe(
-			"https://github.com/SnowballSH/Avalanche/commit/9b7ee6ff829dcfb5ee5e48d8dcb83bd44c26a642",
+			"https://github.com/SnowballSH/Avalanche/commit/327405485fd943dbf0ccaac5539d3841d6e3e1a4",
 		);
-		expect(formatBytes(newest.bytes)).toBe("25.7 MB");
+		expect(formatBytes(newest.bytes)).toBe("25.6 MB");
 		expect(formatBytes(1_536)).toBe("1.5 kB");
 		expect(formatBytes(512)).toBe("512 B");
 		expect(formatBytes(2_500_000_000)).toBe("2.5 GB");
 		expect(formatUsage({ usedBytes: newest.bytes, quotaBytes: 2_000_000_000 })).toBe(
-			"Stored in this browser: 25.7 MB of 2.0 GB available to this site",
+			"Stored in this browser: 25.6 MB of 2.0 GB available to this site",
 		);
 		expect(formatUsage({ usedBytes: 0, quotaBytes: null })).toBe("Stored in this browser: 0 B");
 		expect(pinStateLabel({ kind: "absent" })).toBe("Not downloaded");
@@ -248,7 +248,7 @@ describe("downloading and deleting", () => {
 
 describe("stale pins", () => {
 	it("marks a cached pin the catalogue no longer names as stale, and deletes it", async () => {
-		const { store, manager } = setup({ abi: 1, pins: [newest] });
+		const { store, manager } = setup({ abi: 2, pins: [newest] });
 		store.cache(older.id, older.sha256, older.bytes);
 		await manager.load();
 		expect(rowOf(manager, older.id)).toEqual({

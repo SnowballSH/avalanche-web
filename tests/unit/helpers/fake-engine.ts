@@ -6,7 +6,7 @@ import type {
 import type { LineTransport } from "../../../src/lib/engine/session";
 
 export const FAKE_OPTION_LINES: readonly string[] = [
-	"option name Hash type spin default 16 min 1 max 1048576",
+	"option name Hash type spin default 16 min 1 max 2047",
 	"option name Threads type spin default 1 min 1 max 1",
 	"option name MultiPV type spin default 1 min 1 max 256",
 	"option name Ponder type check default false",

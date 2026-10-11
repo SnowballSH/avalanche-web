@@ -17,15 +17,15 @@ function pin(id: string): PinEntry {
 		id,
 		commit: id.padEnd(40, "0"),
 		label: id,
-		date: "2026-09-27",
+		date: "2026-10-11",
 		sha256: "ab".repeat(32),
 		bytes: 1,
 	};
 }
 
 const older = pin("master-910711f");
-const newest = pin("master-9b7ee6f");
-const catalogue: PinCatalogData = { abi: 1, pins: [newest, older] };
+const newest = pin("v5.0.0-3274054");
+const catalogue: PinCatalogData = { abi: 2, pins: [newest, older] };
 
 class MemoryStorage {
 	readonly items = new Map<string, string>();
@@ -69,7 +69,7 @@ describe("default pin choice", () => {
 
 	it("returns null only for an empty catalogue", () => {
 		const { getDefaultPin } = createDefaultPinChoice(new MemoryStorage());
-		expect(getDefaultPin({ abi: 1, pins: [] })).toBeNull();
+		expect(getDefaultPin({ abi: 2, pins: [] })).toBeNull();
 	});
 
 	it("tolerates storage that throws on read and write", () => {

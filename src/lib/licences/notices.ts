@@ -23,8 +23,8 @@ import svelteLicence from "../../../node_modules/svelte/LICENSE.md?raw";
 import { version as svelteVersion } from "../../../node_modules/svelte/package.json";
 import tailwindLicence from "../../../node_modules/tailwindcss/LICENSE?raw";
 import { version as tailwindVersion } from "../../../node_modules/tailwindcss/package.json";
-import avalancheLicence from "../../../vendor/avalanche-web-abi1/LICENSE?raw";
-import avalancheSource from "../../../vendor/avalanche-web-abi1/SOURCE?raw";
+import avalancheLicence from "../../../vendor/avalanche-web-abi2/LICENSE?raw";
+import avalancheSource from "../../../vendor/avalanche-web-abi2/SOURCE?raw";
 import { APP_SOURCE } from "./source";
 
 export interface Notice {
@@ -42,7 +42,7 @@ export interface Notice {
 
 const vendoredCommit = (source: string): string => {
 	const commit = /^commit:\s*([0-9a-f]{40})$/m.exec(source)?.[1];
-	if (!commit) throw new Error("vendor/avalanche-web-abi1/SOURCE names no commit");
+	if (!commit) throw new Error("vendor/avalanche-web-abi2/SOURCE names no commit");
 	return commit;
 };
 
@@ -61,7 +61,7 @@ export const notices: readonly Notice[] = [
 	{
 		id: "avalanche",
 		name: "Avalanche",
-		role: "The chess engine, compiled to WebAssembly, with its embedded Nezha NNUE network",
+		role: "The chess engine, compiled to WebAssembly, with its embedded Dianguang-5 NNUE network",
 		licence: "GPL-3.0-only",
 		holder: "Yinuo Huang",
 		source: "https://github.com/SnowballSH/Avalanche",

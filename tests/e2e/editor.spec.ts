@@ -10,6 +10,7 @@ const openEditor = async (page: Page, fen?: string) => {
 const squareCentre = async (page: Page, square: string) => {
 	const board = page.locator("cg-board");
 	await board.evaluate((element) => element.scrollIntoView({ block: "center" }));
+	await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
 	const box = await board.boundingBox();
 	if (!box) throw new Error("the board is not visible");
 	const file = square.charCodeAt(0) - "a".charCodeAt(0);
@@ -51,8 +52,10 @@ test("places and removes pieces", async ({ page }) => {
 
 	await page.getByRole("button", { name: "White king" }).click();
 	await clickSquare(page, "e1");
+	await expect(editorFen(page)).toHaveValue("8/8/8/8/8/8/8/4K3 w - - 0 1");
 	await page.getByRole("button", { name: "Black king" }).click();
 	await clickSquare(page, "e8");
+	await expect(editorFen(page)).toHaveValue("4k3/8/8/8/8/8/8/4K3 w - - 0 1");
 	await page.getByRole("button", { name: "White queen" }).click();
 	await clickSquare(page, "d4");
 	await expect(editorFen(page)).toHaveValue("4k3/8/8/8/3Q4/8/8/4K3 w - - 0 1");

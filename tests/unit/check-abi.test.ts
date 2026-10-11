@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { ModuleAbi } from "../../src/lib/pins/abi-check";
 import { compareAbi, describeModuleAbi, formatAbiDifference } from "../../src/lib/pins/abi-check";
-import recorded from "../../vendor/avalanche-web-abi1/abi.json";
-import { synthesizeWasm } from "./helpers/wasm-module";
+import recorded from "../../vendor/avalanche-web-abi2/abi.json";
+import { type SyntheticModuleShape, synthesizeWasm } from "./helpers/wasm-module";
 
 const recordedImports = recorded.imports.map((entry) => `${entry.module}.${entry.name}`);
 const recordedExports = recorded.exports
@@ -30,8 +30,13 @@ describe("describeModuleAbi", () => {
 	});
 });
 
+const synthesizeRecordedWasm = (shape: SyntheticModuleShape) =>
+	synthesizeWasm({ ...shape, exportStackPointer: true });
+
 describe("compareAbi", () => {
-	const matching = abiOf(synthesizeWasm({ imports: recordedImports, exports: recordedExports }));
+	const matching = abiOf(
+		synthesizeRecordedWasm({ imports: recordedImports, exports: recordedExports }),
+	);
 
 	it("reports no differences for a module matching the recorded ABI", () => {
 		expect(compareAbi(recorded, matching)).toEqual([]);
@@ -43,7 +48,7 @@ describe("compareAbi", () => {
 
 	it("fails a module with a renamed export", () => {
 		const renamed = abiOf(
-			synthesizeWasm({
+			synthesizeRecordedWasm({
 				imports: recordedImports,
 				exports: recordedExports.map((name) =>
 					name === "avalanche_command" ? "avalanche_cmd" : name,
@@ -58,7 +63,7 @@ describe("compareAbi", () => {
 
 	it("fails a module with a removed export", () => {
 		const removed = abiOf(
-			synthesizeWasm({
+			synthesizeRecordedWasm({
 				imports: recordedImports,
 				exports: recordedExports.filter((name) => name !== "avalanche_bench"),
 			}),
@@ -70,7 +75,7 @@ describe("compareAbi", () => {
 
 	it("fails a module with a renamed import", () => {
 		const renamed = abiOf(
-			synthesizeWasm({
+			synthesizeRecordedWasm({
 				imports: recordedImports.map((name) =>
 					name === "env.avalanche_write" ? "env.avalanche_print" : name,
 				),
@@ -85,7 +90,7 @@ describe("compareAbi", () => {
 
 	it("fails a module with a removed import", () => {
 		const removed = abiOf(
-			synthesizeWasm({
+			synthesizeRecordedWasm({
 				imports: recordedImports.filter((name) => name !== "env.avalanche_now_ms"),
 				exports: recordedExports,
 			}),
@@ -97,7 +102,11 @@ describe("compareAbi", () => {
 
 	it("fails a module whose memory export is missing", () => {
 		const noMemory = abiOf(
-			synthesizeWasm({ imports: recordedImports, exports: recordedExports, exportMemory: false }),
+			synthesizeRecordedWasm({
+				imports: recordedImports,
+				exports: recordedExports,
+				exportMemory: false,
+			}),
 		);
 		expect(compareAbi(recorded, noMemory)).toEqual([
 			{ side: "export", change: "missing", name: "memory", kind: "memory" },

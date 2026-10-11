@@ -61,14 +61,14 @@ function rejectDuplicates(pins: readonly PinSource[], field: "id" | "commit"): v
 
 export function parsePinCatalogueSource(data: unknown): PinCatalogueSource {
 	if (!isRecord(data)) fail("catalogue must be an object");
-	if (data.abi !== 1) fail(`abi must be 1, found ${JSON.stringify(data.abi)}`);
+	if (data.abi !== 2) fail(`abi must be 2, found ${JSON.stringify(data.abi)}`);
 	if (!Array.isArray(data.pins) || data.pins.length === 0) {
 		fail("pins must be a non-empty array");
 	}
 	const pins = data.pins.map(parsePin);
 	rejectDuplicates(pins, "id");
 	rejectDuplicates(pins, "commit");
-	return { abi: 1, pins };
+	return { abi: 2, pins };
 }
 
 export function withMeasurements(source: PinCatalogueSource, measure: MeasurePin): PinCatalogData {

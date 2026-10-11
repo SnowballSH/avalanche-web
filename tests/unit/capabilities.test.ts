@@ -3,7 +3,7 @@ import { deriveCapabilities, parseOptionLine } from "../../src/lib/engine/capabi
 import type { UciOptionSpec } from "../../src/lib/engine/types";
 
 const wasmOptionLines = [
-	"option name Hash type spin default 16 min 1 max 1048576",
+	"option name Hash type spin default 16 min 1 max 2047",
 	"option name Threads type spin default 1 min 1 max 1",
 	"option name Move Overhead type spin default 25 min 0 max 5000",
 	"option name MultiPV type spin default 1 min 1 max 256",
@@ -13,6 +13,7 @@ const wasmOptionLines = [
 	"option name UCI_LimitStrength type check default false",
 	"option name UCI_Elo type spin default 3000 min 1320 max 3000",
 	"option name Skill Level type spin default 20 min 0 max 20",
+	"option name EvalScale type spin default 1000 min 500 max 2000",
 	"option name UCI_ShowWDL type check default false",
 	"option name Contempt type spin default 0 min -100 max 100",
 ];
@@ -28,9 +29,9 @@ function optionsFrom(lines: readonly string[]): Map<string, UciOptionSpec> {
 
 describe("parseOptionLine", () => {
 	it("parses a spin option", () => {
-		expect(parseOptionLine("option name Hash type spin default 16 min 1 max 1048576")).toEqual({
+		expect(parseOptionLine("option name Hash type spin default 16 min 1 max 2047")).toEqual({
 			name: "Hash",
-			spec: { kind: "spin", default: 16, min: 1, max: 1048576 },
+			spec: { kind: "spin", default: 16, min: 1, max: 2047 },
 		});
 	});
 

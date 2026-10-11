@@ -28,7 +28,7 @@
 		"./src/**/*.ts",
 		"./src/**/*.svelte",
 		"./tests/**/*.ts",
-		"./vendor/avalanche-web-abi1/src/**/*.ts"
+		"./vendor/avalanche-web-abi2/src/**/*.ts"
 	],
-	"exclude": ["./node_modules", "./vendor/avalanche-web-abi1/src/node/**"]
+	"exclude": ["./node_modules", "./vendor/avalanche-web-abi2/src/node/**"]
 }

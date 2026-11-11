@@ -1,33 +1,33 @@
 <script lang="ts">
 import { Callout } from "foundationui/svelte";
 import { onMount } from "svelte";
-import { goto, replaceState } from "$app/navigation";
-import Board from "$lib/board/Board.svelte";
-import EvalBar from "$lib/board/EvalBar.svelte";
-import { legalDests } from "$lib/board/moves";
-import { positionFromFen } from "$lib/chess/fen";
-import type { Color } from "$lib/chess/types";
-import { FEN_QUERY_PARAM } from "$lib/editor/editor-state";
-import { hashChoices as hashChoicesFor } from "$lib/engine/memory";
-import type { EngineCapabilities, EngineScheduler } from "$lib/engine/types";
-import { getDefaultPin } from "$lib/pins/default-pin";
-import { askToPersist } from "$lib/pins/persistence";
-import type { PinEntry, PinId } from "$lib/pins/types";
-import { type EngineConnector, PlayController } from "$lib/play/controller";
-import GamePanel from "$lib/play/GamePanel.svelte";
-import { browserPlayStore } from "$lib/play/persist";
-import SetupDialog from "$lib/play/SetupDialog.svelte";
-import type { PlaySettings } from "$lib/play/types";
-import { handOffToAnalysis } from "$lib/shared/analysis-handoff";
+import Board from "#lib/board/Board.svelte";
+import EvalBar from "#lib/board/EvalBar.svelte";
+import { legalDests } from "#lib/board/moves.ts";
+import { positionFromFen } from "#lib/chess/fen.ts";
+import type { Color } from "#lib/chess/types.ts";
+import { FEN_QUERY_PARAM } from "#lib/editor/editor-state.ts";
+import { hashChoices as hashChoicesFor } from "#lib/engine/memory.ts";
+import type { EngineCapabilities, EngineScheduler } from "#lib/engine/types.ts";
+import { getDefaultPin } from "#lib/pins/default-pin.ts";
+import { askToPersist } from "#lib/pins/persistence.ts";
+import type { PinEntry, PinId } from "#lib/pins/types.ts";
+import { type EngineConnector, PlayController } from "#lib/play/controller.ts";
+import GamePanel from "#lib/play/GamePanel.svelte";
+import { browserPlayStore } from "#lib/play/persist.ts";
+import SetupDialog from "#lib/play/SetupDialog.svelte";
+import type { PlaySettings } from "#lib/play/types.ts";
+import { handOffToAnalysis } from "#lib/shared/analysis-handoff.ts";
 import {
 	browserEngineRuntime,
 	defaultHashMb,
 	deviceMemoryGb,
 	engineErrorMessage,
 	isCrossOriginIsolated,
-} from "$lib/shared/engine-runtime";
-import { saveTextFile } from "$lib/shared/save-file";
-import { type LinkedStart, startFromLink } from "$lib/shared/start-link";
+} from "#lib/shared/engine-runtime.ts";
+import { saveTextFile } from "#lib/shared/save-file.ts";
+import { type LinkedStart, startFromLink } from "#lib/shared/start-link.ts";
+import { goto } from "$app/navigation";
 
 const CLOCK_REFRESH_MS = 100;
 
@@ -200,7 +200,7 @@ onMount(() => {
 			setupOpen = true;
 			const url = new URL(window.location.href);
 			url.searchParams.delete(FEN_QUERY_PARAM);
-			replaceState(url, {});
+			void goto(url, { shallow: true, replace: true });
 		} else if (!controller.resume()) {
 			setupOpen = true;
 		}

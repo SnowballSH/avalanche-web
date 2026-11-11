@@ -51,7 +51,8 @@ immutable. `/health/live` and `/health/ready` answer `ok`.
 
 ## The CSP is derived from the build
 
-`kit.csp` in `svelte.config.js` is the single source of the policy, in
+`csp` in `csp.config.ts`, which `vite.config.ts` hands to the `sveltekit()`
+plugin, is the single source of the policy, in
 `mode: 'hash'`. SvelteKit hashes each page's inline boot script and, because
 `adapter-static` prerenders, writes the policy into a `<meta
 http-equiv="content-security-policy">` in each page, with that page's hash

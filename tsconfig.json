@@ -1,25 +1,16 @@
 {
-	"extends": "./.svelte-kit/tsconfig.json",
+	"extends": "$app/tsconfig",
 	"compilerOptions": {
 		"strict": true,
 		"noUncheckedIndexedAccess": true,
 		"noImplicitOverride": true,
 		"exactOptionalPropertyTypes": true,
 		"noFallthroughCasesInSwitch": true,
-		"esModuleInterop": true,
-		"forceConsistentCasingInFileNames": true,
-		"resolveJsonModule": true,
-		"allowImportingTsExtensions": true,
-		"rewriteRelativeImportExtensions": true,
-		"skipLibCheck": true,
 		"sourceMap": true,
-		"moduleResolution": "bundler",
-		"types": []
+		"types": ["$app/types"]
 	},
 	"include": [
-		"./.svelte-kit/ambient.d.ts",
-		"./.svelte-kit/non-ambient.d.ts",
-		"./.svelte-kit/types/**/$types.d.ts",
+		"./csp.config.ts",
 		"./vite.config.ts",
 		"./playwright.config.ts",
 		"./playwright.served.config.ts",

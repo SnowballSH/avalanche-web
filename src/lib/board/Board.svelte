@@ -9,8 +9,8 @@ import "@lichess-org/chessground/assets/chessground.brown.css";
 import "@lichess-org/chessground/assets/chessground.cburnett.css";
 import "./board.css";
 import { untrack } from "svelte";
-import type { Color } from "$lib/chess/types";
-import type { Fen, UciMove } from "$lib/engine/types";
+import type { Color } from "#lib/chess/types.ts";
+import type { Fen, UciMove } from "#lib/engine/types.ts";
 import {
 	type BoardEditing,
 	type BoardMovable,

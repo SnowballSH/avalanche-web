@@ -1,4 +1,4 @@
-import type { PinEntry } from "$lib/pins/types";
+import type { PinEntry } from "#lib/pins/types.ts";
 import type { EngineHost, EngineStartOptions, UciSession } from "./types";
 
 interface CachedSession {

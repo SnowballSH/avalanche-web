@@ -1,9 +1,9 @@
 <script lang="ts">
 import { Button, Callout, Select } from "foundationui/svelte";
-import { parseFen } from "$lib/chess/fen";
-import { importPgn } from "$lib/chess/pgn";
-import type { ImportError, ImportedGame } from "$lib/chess/types";
-import type { Fen } from "$lib/engine/types";
+import { parseFen } from "#lib/chess/fen.ts";
+import { importPgn } from "#lib/chess/pgn.ts";
+import type { ImportError, ImportedGame } from "#lib/chess/types.ts";
+import type { Fen } from "#lib/engine/types.ts";
 import type { AnalysisController } from "./controller";
 import { analysisLink } from "./hash-link";
 import { pasteKind } from "./paste-kind";

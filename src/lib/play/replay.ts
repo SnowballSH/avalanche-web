@@ -1,7 +1,7 @@
-import { turnOf } from "$lib/board/moves";
-import { createGameTree, IllegalMoveError, InvalidStartError } from "$lib/chess/tree";
-import type { Color, GameTree, StartPosition } from "$lib/chess/types";
-import type { UciMove } from "$lib/engine/types";
+import { turnOf } from "#lib/board/moves.ts";
+import { createGameTree, IllegalMoveError, InvalidStartError } from "#lib/chess/tree.ts";
+import type { Color, GameTree, StartPosition } from "#lib/chess/types.ts";
+import type { UciMove } from "#lib/engine/types.ts";
 
 export const replayGame = (start: StartPosition, moves: readonly UciMove[]): GameTree | null => {
 	try {

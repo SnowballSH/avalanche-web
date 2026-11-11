@@ -1,4 +1,4 @@
-import type { GameTree, NodeId } from "$lib/chess/types";
+import type { GameTree, NodeId } from "#lib/chess/types.ts";
 
 interface Bracket {
 	readonly kind: "open" | "close";

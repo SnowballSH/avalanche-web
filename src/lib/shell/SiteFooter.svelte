@@ -1,6 +1,6 @@
 <script lang="ts">
 import { Footer, Link } from "foundationui/svelte";
-import { APP_SOURCE } from "$lib/licences/source";
+import { APP_SOURCE } from "#lib/licences/source.ts";
 </script>
 
 <Footer>

@@ -3,15 +3,15 @@ import type { DrawShape } from "@lichess-org/chessground/draw";
 import { makeFen } from "chessops/fen";
 import { parseUci } from "chessops/util";
 import { Button, Select } from "foundationui/svelte";
-import Board from "$lib/board/Board.svelte";
-import EvalBar from "$lib/board/EvalBar.svelte";
-import EvalGraph from "$lib/board/EvalGraph.svelte";
-import type { PovScore } from "$lib/board/eval";
-import { legalDests } from "$lib/board/moves";
-import { bestMoveArrow } from "$lib/board/shapes";
-import { positionFromFen } from "$lib/chess/fen";
-import type { Color } from "$lib/chess/types";
-import type { Fen, Score, UciMove } from "$lib/engine/types";
+import Board from "#lib/board/Board.svelte";
+import EvalBar from "#lib/board/EvalBar.svelte";
+import EvalGraph from "#lib/board/EvalGraph.svelte";
+import type { PovScore } from "#lib/board/eval.ts";
+import { legalDests } from "#lib/board/moves.ts";
+import { bestMoveArrow } from "#lib/board/shapes.ts";
+import { positionFromFen } from "#lib/chess/fen.ts";
+import type { Color } from "#lib/chess/types.ts";
+import type { Fen, Score, UciMove } from "#lib/engine/types.ts";
 
 const POSITIONS = {
 	start: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",

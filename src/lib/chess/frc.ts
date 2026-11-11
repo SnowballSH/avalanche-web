@@ -1,4 +1,4 @@
-import type { Fen } from "$lib/engine/types";
+import type { Fen } from "#lib/engine/types.ts";
 import { epdOf, parseFen } from "./fen";
 
 export const FRC_POSITIONS = 960;

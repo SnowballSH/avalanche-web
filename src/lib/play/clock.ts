@@ -1,4 +1,4 @@
-import type { Color } from "$lib/chess/types";
+import type { Color } from "#lib/chess/types.ts";
 import type { Clock, ClockFactory, ClockOptions, ClockSnapshot, MonotonicNow } from "./types";
 
 const other = (side: Color): Color => (side === "white" ? "black" : "white");

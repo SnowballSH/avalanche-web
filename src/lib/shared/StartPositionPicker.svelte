@@ -1,8 +1,8 @@
 <script lang="ts">
 import { Button, Callout, Input } from "foundationui/svelte";
-import { parseFen } from "$lib/chess/fen";
-import { FRC_POSITIONS, frcBackRank, randomFrc } from "$lib/chess/frc";
-import type { StartPosition } from "$lib/chess/types";
+import { parseFen } from "#lib/chess/fen.ts";
+import { FRC_POSITIONS, frcBackRank, randomFrc } from "#lib/chess/frc.ts";
+import type { StartPosition } from "#lib/chess/types.ts";
 import type { LinkedStart } from "./start-link";
 
 interface Props {

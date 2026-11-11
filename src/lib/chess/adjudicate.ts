@@ -1,5 +1,5 @@
 import { opposite } from "chessops/util";
-import type { Fen, Score } from "$lib/engine/types";
+import type { Fen, Score } from "#lib/engine/types.ts";
 import { epdOf, parseFen, positionFromFen } from "./fen";
 import type { GameResult } from "./types";
 

@@ -1,4 +1,4 @@
-import type { Fen, SearchInfo, UciMove } from "$lib/engine/types";
+import type { Fen, SearchInfo, UciMove } from "#lib/engine/types.ts";
 
 export type Color = "white" | "black";
 

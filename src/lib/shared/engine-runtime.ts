@@ -1,12 +1,12 @@
-import { createBrowserEngineHost } from "$lib/engine/host";
-import { hashCapMb } from "$lib/engine/memory";
-import { PinUnavailableError } from "$lib/engine/pin-loader";
-import { createScheduler } from "$lib/engine/scheduler";
-import { EngineSessionCache } from "$lib/engine/session-cache";
-import type { EngineScheduler } from "$lib/engine/types";
-import { createPinCatalog } from "$lib/pins/catalog";
-import { createPinStore, PinStoreError } from "$lib/pins/store";
-import type { PinCatalogData, PinStore } from "$lib/pins/types";
+import { createBrowserEngineHost } from "#lib/engine/host.ts";
+import { hashCapMb } from "#lib/engine/memory.ts";
+import { PinUnavailableError } from "#lib/engine/pin-loader.ts";
+import { createScheduler } from "#lib/engine/scheduler.ts";
+import { EngineSessionCache } from "#lib/engine/session-cache.ts";
+import type { EngineScheduler } from "#lib/engine/types.ts";
+import { createPinCatalog } from "#lib/pins/catalog.ts";
+import { createPinStore, PinStoreError } from "#lib/pins/store.ts";
+import type { PinCatalogData, PinStore } from "#lib/pins/types.ts";
 
 export interface EngineRuntime {
 	readonly scheduler: EngineScheduler;

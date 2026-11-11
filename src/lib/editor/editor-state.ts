@@ -7,10 +7,10 @@ import {
 	parseFen as parseSetup,
 } from "chessops/fen";
 import { makeSquare, parseSquare, squareFile, squareRank } from "chessops/util";
-import { analysisLink } from "$lib/analysis/hash-link";
-import { parseFen, parseFenSetup } from "$lib/chess/fen";
-import type { Color, ImportResult } from "$lib/chess/types";
-import type { Fen } from "$lib/engine/types";
+import { analysisLink } from "#lib/analysis/hash-link.ts";
+import { parseFen, parseFenSetup } from "#lib/chess/fen.ts";
+import type { Color, ImportResult } from "#lib/chess/types.ts";
+import type { Fen } from "#lib/engine/types.ts";
 
 export type CastlingRight = "K" | "Q" | "k" | "q";
 

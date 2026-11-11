@@ -2,7 +2,7 @@ import type { Position } from "chessops";
 import { INITIAL_FEN, makeFen } from "chessops/fen";
 import { makeSanAndPlay } from "chessops/san";
 import { parseUci } from "chessops/util";
-import type { Fen, SearchInfo, UciMove } from "$lib/engine/types";
+import type { Fen, SearchInfo, UciMove } from "#lib/engine/types.ts";
 import { moveToUci, parseFen, positionFromFen } from "./fen";
 import { frcFen } from "./frc";
 import type {

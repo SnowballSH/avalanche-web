@@ -15,7 +15,7 @@ import {
 	parseComment,
 } from "chessops/pgn";
 import { parseSan } from "chessops/san";
-import type { Fen, Score, SearchInfo } from "$lib/engine/types";
+import type { Fen, Score, SearchInfo } from "#lib/engine/types.ts";
 import { importSizeError, moveToUci, parseFen, positionFromFen } from "./fen";
 import { frcFen, frcNumber } from "./frc";
 import { createGameTree } from "./tree";

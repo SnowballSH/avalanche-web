@@ -1,10 +1,10 @@
 import { makeFen } from "chessops/fen";
 import { makeSanAndPlay } from "chessops/san";
 import { parseUci } from "chessops/util";
-import { type PovScore, whitePovAt } from "$lib/board/eval";
-import { parseFen, positionFromFen } from "$lib/chess/fen";
-import { exportPgn } from "$lib/chess/pgn";
-import { createGameTree, IllegalMoveError, InvalidStartError } from "$lib/chess/tree";
+import { type PovScore, whitePovAt } from "#lib/board/eval.ts";
+import { parseFen, positionFromFen } from "#lib/chess/fen.ts";
+import { exportPgn } from "#lib/chess/pgn.ts";
+import { createGameTree, IllegalMoveError, InvalidStartError } from "#lib/chess/tree.ts";
 import type {
 	GameTree,
 	ImportedGame,
@@ -12,8 +12,8 @@ import type {
 	NodeId,
 	San,
 	StartPosition,
-} from "$lib/chess/types";
-import { SearchAbortedError, SessionAbortedError } from "$lib/engine/session";
+} from "#lib/chess/types.ts";
+import { SearchAbortedError, SessionAbortedError } from "#lib/engine/session.ts";
 import type {
 	EngineLease,
 	EngineScheduler,
@@ -24,7 +24,7 @@ import type {
 	UciMove,
 	UciSession,
 	Unsubscribe,
-} from "$lib/engine/types";
+} from "#lib/engine/types.ts";
 import { fenFromHash } from "./hash-link";
 
 export const MULTI_PV_MIN = 1;

@@ -1,6 +1,6 @@
 import type { DrawShape } from "@lichess-org/chessground/draw";
 import type { Key } from "@lichess-org/chessground/types";
-import type { UciMove } from "$lib/engine/types";
+import type { UciMove } from "#lib/engine/types.ts";
 
 export const BEST_MOVE_BRUSH = "paleBlue";
 

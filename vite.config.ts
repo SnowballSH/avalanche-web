@@ -1,7 +1,9 @@
+import adapter from "@sveltejs/adapter-static";
 import { sveltekit } from "@sveltejs/kit/vite";
 import tailwindcss from "@tailwindcss/vite";
 import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
+import { csp } from "./csp.config.ts";
 import { localServingHandler } from "./scripts/local-serving.ts";
 
 const localServing = (): Plugin => {
@@ -21,7 +23,11 @@ const localServing = (): Plugin => {
 };
 
 export default defineConfig({
-	plugins: [localServing(), tailwindcss(), sveltekit()],
+	plugins: [
+		localServing(),
+		tailwindcss(),
+		sveltekit({ adapter: adapter({ fallback: "index.html" }), csp }),
+	],
 	define: {
 		__BOARD_HARNESS__: JSON.stringify(process.env.BOARD_HARNESS === "1"),
 	},

@@ -1,11 +1,11 @@
 <script lang="ts">
 import { Button, Callout, Select, Switch } from "foundationui/svelte";
 import { onMount } from "svelte";
-import Board from "$lib/board/Board.svelte";
-import { formatScore } from "$lib/board/eval";
-import type { Color, San } from "$lib/chess/types";
-import type { Fen, UciMove } from "$lib/engine/types";
-import type { PinEntry, PinId } from "$lib/pins/types";
+import Board from "#lib/board/Board.svelte";
+import { formatScore } from "#lib/board/eval.ts";
+import type { Color, San } from "#lib/chess/types.ts";
+import type { Fen, UciMove } from "#lib/engine/types.ts";
+import type { PinEntry, PinId } from "#lib/pins/types.ts";
 import {
 	type EngineLine,
 	type EngineStatus,

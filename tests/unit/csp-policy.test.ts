@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
+import { csp } from "../../csp.config.ts";
 import {
 	type CspDirectives,
 	CspPolicyError,
@@ -7,7 +8,6 @@ import {
 	inlineScriptSources,
 	metaPolicy,
 } from "../../scripts/lib/csp-policy";
-import config from "../../svelte.config.js";
 
 const directives: CspDirectives = {
 	"default-src": ["self"],
@@ -130,8 +130,8 @@ describe("headerPolicy", () => {
 		);
 	});
 
-	it("accepts the repository's own kit.csp configuration", () => {
-		const configured = config.kit?.csp?.directives as CspDirectives;
+	it("accepts the repository's own csp configuration", () => {
+		const configured: CspDirectives = csp.directives;
 		const meta = kitMeta("boot()")
 			.replace("default-src 'self';", "default-src 'self'; worker-src 'self'; connect-src 'self';")
 			.concat("; form-action 'none'");

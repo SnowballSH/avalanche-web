@@ -10,7 +10,7 @@ import {
 import { castlingSide, normalizeMove } from "chessops/chess";
 import { makeFen, parseFen as parseSetup } from "chessops/fen";
 import { kingCastlesTo, makeUci, squareFile } from "chessops/util";
-import type { Fen, UciMove } from "$lib/engine/types";
+import type { Fen, UciMove } from "#lib/engine/types.ts";
 import type { ImportError, ImportResult, ParsedFen } from "./types";
 
 export const MAX_IMPORT_BYTES = 5 * 1024 * 1024;

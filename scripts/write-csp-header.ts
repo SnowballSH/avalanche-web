@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /// <reference types="node" />
 // Writes the Caddyfile snippet that sends the site's Content-Security-Policy as a
-// response header: kit.csp's directives from svelte.config.js, with script-src
+// response header: the csp directives from csp.config.ts, with script-src
 // carrying every boot-script hash the build wrote into its pages' CSP meta tags.
 // See docs/image.md.
 //
@@ -9,7 +9,7 @@
 
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import config from "../svelte.config.js";
+import { csp } from "../csp.config.ts";
 import { type BuiltPage, type CspDirectives, headerPolicy } from "./lib/csp-policy.ts";
 
 const [buildDir, snippetPath, ...rest] = process.argv.slice(2);
@@ -18,11 +18,7 @@ if (buildDir === undefined || snippetPath === undefined || rest.length > 0) {
 	process.exit(2);
 }
 
-const directives = config.kit?.csp?.directives as CspDirectives | undefined;
-if (config.kit?.csp?.mode !== "hash" || directives === undefined) {
-	console.error("write-csp-header: svelte.config.js must set kit.csp with mode 'hash'");
-	process.exit(1);
-}
+const directives: CspDirectives = csp.directives;
 
 const htmlFiles = (await readdir(buildDir, { recursive: true }))
 	.filter((path) => path.endsWith(".html"))

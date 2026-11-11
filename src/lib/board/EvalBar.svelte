@@ -1,5 +1,5 @@
 <script lang="ts">
-import type { Color } from "$lib/chess/types";
+import type { Color } from "#lib/chess/types.ts";
 import { evalBarFraction, formatScore, type PovScore } from "./eval";
 
 interface Props {

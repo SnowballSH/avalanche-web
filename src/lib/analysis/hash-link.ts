@@ -1,4 +1,4 @@
-import type { Fen } from "$lib/engine/types";
+import type { Fen } from "#lib/engine/types.ts";
 
 export const ANALYSIS_PATH = "/analysis";
 

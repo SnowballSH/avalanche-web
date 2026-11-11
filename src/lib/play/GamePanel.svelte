@@ -1,6 +1,6 @@
 <script lang="ts">
 import { Button, Callout } from "foundationui/svelte";
-import type { Color, GameResult } from "$lib/chess/types";
+import type { Color, GameResult } from "#lib/chess/types.ts";
 import type { PlayState } from "./controller";
 import { formatClock, moveRows, resultText } from "./display";
 

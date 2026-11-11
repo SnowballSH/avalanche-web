@@ -1,6 +1,6 @@
 <script lang="ts">
 import { Button } from "foundationui/svelte";
-import type { GameTree, NodeId } from "$lib/chess/types";
+import type { GameTree, NodeId } from "#lib/chess/types.ts";
 import { moveTokens } from "./move-tokens";
 
 interface Props {

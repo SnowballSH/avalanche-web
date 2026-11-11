@@ -1,12 +1,12 @@
 import { parseUci } from "chessops/util";
-import { type PovScore, whitePovAt } from "$lib/board/eval";
-import { turnOf } from "$lib/board/moves";
-import { adjudicate, DRAW_OFFER_WINDOW_MOVES, drawOfferAccepted } from "$lib/chess/adjudicate";
-import { positionFromFen } from "$lib/chess/fen";
-import { exportPgn } from "$lib/chess/pgn";
-import { createGameTree, IllegalMoveError, InvalidStartError } from "$lib/chess/tree";
-import type { Color, GameResult, GameTree, NodeId } from "$lib/chess/types";
-import { SearchAbortedError } from "$lib/engine/session";
+import { type PovScore, whitePovAt } from "#lib/board/eval.ts";
+import { turnOf } from "#lib/board/moves.ts";
+import { adjudicate, DRAW_OFFER_WINDOW_MOVES, drawOfferAccepted } from "#lib/chess/adjudicate.ts";
+import { positionFromFen } from "#lib/chess/fen.ts";
+import { exportPgn } from "#lib/chess/pgn.ts";
+import { createGameTree, IllegalMoveError, InvalidStartError } from "#lib/chess/tree.ts";
+import type { Color, GameResult, GameTree, NodeId } from "#lib/chess/types.ts";
+import { SearchAbortedError } from "#lib/engine/session.ts";
 import type {
 	BestMove,
 	BoundedSearch,
@@ -19,8 +19,8 @@ import type {
 	UciMove,
 	UciSession,
 	Unsubscribe,
-} from "$lib/engine/types";
-import type { PinId } from "$lib/pins/types";
+} from "#lib/engine/types.ts";
+import type { PinId } from "#lib/pins/types.ts";
 import { createClock } from "./clock";
 import { replayGame } from "./replay";
 import type {

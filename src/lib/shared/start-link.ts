@@ -1,6 +1,6 @@
-import { parseFen } from "$lib/chess/fen";
-import type { StartPosition } from "$lib/chess/types";
-import { FEN_QUERY_PARAM } from "$lib/editor/editor-state";
+import { parseFen } from "#lib/chess/fen.ts";
+import type { StartPosition } from "#lib/chess/types.ts";
+import { FEN_QUERY_PARAM } from "#lib/editor/editor-state.ts";
 
 export interface LinkedStart {
 	readonly start: StartPosition;

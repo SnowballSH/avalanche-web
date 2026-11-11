@@ -2,10 +2,9 @@
 import type { Color as PieceColor, Role, SquareName } from "chessops";
 import { Button, Callout, Input, Panel, Select } from "foundationui/svelte";
 import { onMount } from "svelte";
-import { goto } from "$app/navigation";
-import Board from "$lib/board/Board.svelte";
-import type { BoardEditing } from "$lib/board/moves";
-import type { Color } from "$lib/chess/types";
+import Board from "#lib/board/Board.svelte";
+import type { BoardEditing } from "#lib/board/moves.ts";
+import type { Color } from "#lib/chess/types.ts";
 import {
 	applyTool,
 	CASTLING_RIGHTS,
@@ -24,7 +23,8 @@ import {
 	withEnPassant,
 	withPlacement,
 	withTurn,
-} from "$lib/editor/editor-state";
+} from "#lib/editor/editor-state.ts";
+import { goto } from "$app/navigation";
 
 const ROLES: readonly Role[] = ["king", "queen", "rook", "bishop", "knight", "pawn"];
 

@@ -1,4 +1,4 @@
-import type { PinEntry, PinId } from "$lib/pins/types";
+import type { PinEntry, PinId } from "#lib/pins/types.ts";
 
 export type UciMove = string;
 

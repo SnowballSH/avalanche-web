@@ -1,6 +1,6 @@
-import type { EngineStartOptions, UciSession } from "$lib/engine/types";
-import { askToPersist } from "$lib/pins/persistence";
-import type { PinCatalogData, PinEntry, PinId, PinProgressListener } from "$lib/pins/types";
+import type { EngineStartOptions, UciSession } from "#lib/engine/types.ts";
+import { askToPersist } from "#lib/pins/persistence.ts";
+import type { PinCatalogData, PinEntry, PinId, PinProgressListener } from "#lib/pins/types.ts";
 
 export interface EngineSelection {
 	readonly pinId: PinId | null;

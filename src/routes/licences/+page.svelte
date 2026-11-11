@@ -1,7 +1,7 @@
 <script lang="ts">
 import { Link, PageShell, Panel } from "foundationui/svelte";
-import { notices } from "$lib/licences/notices";
-import { APP_SOURCE } from "$lib/licences/source";
+import { notices } from "#lib/licences/notices.ts";
+import { APP_SOURCE } from "#lib/licences/source.ts";
 </script>
 
 <svelte:head>

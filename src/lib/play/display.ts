@@ -1,4 +1,4 @@
-import type { GameResult, GameTree, San } from "$lib/chess/types";
+import type { GameResult, GameTree, San } from "#lib/chess/types.ts";
 
 export interface MoveRow {
 	readonly number: number;

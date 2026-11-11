@@ -1,4 +1,4 @@
-import type { GameResultReason } from "$lib/chess/types";
+import type { GameResultReason } from "#lib/chess/types.ts";
 import { replayGame, sideToMove } from "./replay";
 import { withinEngineLimit } from "./setup";
 import type { EngineLimitKind, PlayStore, SavedGame } from "./types";

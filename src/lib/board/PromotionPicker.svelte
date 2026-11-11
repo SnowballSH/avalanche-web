@@ -1,6 +1,6 @@
 <script lang="ts">
 import type { Key } from "@lichess-org/chessground/types";
-import type { Color } from "$lib/chess/types";
+import type { Color } from "#lib/chess/types.ts";
 import { PROMOTION_ROLES, type PromotionRole } from "./moves";
 
 interface Props {

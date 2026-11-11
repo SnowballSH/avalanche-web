@@ -1,34 +1,34 @@
 <script lang="ts">
 import { Button, Callout, Link, Panel } from "foundationui/svelte";
 import { onMount } from "svelte";
-import { AnalysisController } from "$lib/analysis/controller";
-import EnginePanel from "$lib/analysis/EnginePanel.svelte";
-import { EngineConnector, EngineConnectSupersededError } from "$lib/analysis/engine-connector";
-import ImportExport from "$lib/analysis/ImportExport.svelte";
-import MoveTree from "$lib/analysis/MoveTree.svelte";
-import Board from "$lib/board/Board.svelte";
-import EvalBar from "$lib/board/EvalBar.svelte";
-import EvalGraph from "$lib/board/EvalGraph.svelte";
-import { type PovScore, whitePovAt } from "$lib/board/eval";
-import { legalDests, turnOf } from "$lib/board/moves";
-import { bestMoveArrow } from "$lib/board/shapes";
-import { positionFromFen } from "$lib/chess/fen";
-import { importPgn } from "$lib/chess/pgn";
-import type { Color, StartPosition } from "$lib/chess/types";
-import { editorLink } from "$lib/editor/editor-state";
-import { hashChoices as hashChoicesFor } from "$lib/engine/memory";
-import type { EngineScheduler, UciSession } from "$lib/engine/types";
-import { getDefaultPin } from "$lib/pins/default-pin";
-import type { PinEntry, PinId } from "$lib/pins/types";
-import { takeAnalysisHandoff } from "$lib/shared/analysis-handoff";
+import { AnalysisController } from "#lib/analysis/controller.ts";
+import EnginePanel from "#lib/analysis/EnginePanel.svelte";
+import { EngineConnector, EngineConnectSupersededError } from "#lib/analysis/engine-connector.ts";
+import ImportExport from "#lib/analysis/ImportExport.svelte";
+import MoveTree from "#lib/analysis/MoveTree.svelte";
+import Board from "#lib/board/Board.svelte";
+import EvalBar from "#lib/board/EvalBar.svelte";
+import EvalGraph from "#lib/board/EvalGraph.svelte";
+import { type PovScore, whitePovAt } from "#lib/board/eval.ts";
+import { legalDests, turnOf } from "#lib/board/moves.ts";
+import { bestMoveArrow } from "#lib/board/shapes.ts";
+import { positionFromFen } from "#lib/chess/fen.ts";
+import { importPgn } from "#lib/chess/pgn.ts";
+import type { Color, StartPosition } from "#lib/chess/types.ts";
+import { editorLink } from "#lib/editor/editor-state.ts";
+import { hashChoices as hashChoicesFor } from "#lib/engine/memory.ts";
+import type { EngineScheduler, UciSession } from "#lib/engine/types.ts";
+import { getDefaultPin } from "#lib/pins/default-pin.ts";
+import type { PinEntry, PinId } from "#lib/pins/types.ts";
+import { takeAnalysisHandoff } from "#lib/shared/analysis-handoff.ts";
 import {
 	browserEngineRuntime,
 	defaultHashMb,
 	deviceMemoryGb,
 	engineErrorMessage,
 	isCrossOriginIsolated,
-} from "$lib/shared/engine-runtime";
-import StartPositionPicker from "$lib/shared/StartPositionPicker.svelte";
+} from "#lib/shared/engine-runtime.ts";
+import StartPositionPicker from "#lib/shared/StartPositionPicker.svelte";
 
 const scheduler: EngineScheduler = {
 	acquire: (owner) => browserEngineRuntime().scheduler.acquire(owner),

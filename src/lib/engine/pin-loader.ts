@@ -1,5 +1,5 @@
-import { PIN_CACHE_NAME } from "$lib/pins/cache-key";
-import type { PinId } from "$lib/pins/types";
+import { PIN_CACHE_NAME } from "#lib/pins/cache-key.ts";
+import type { PinId } from "#lib/pins/types.ts";
 import type { WasmLoader } from "../../../vendor/avalanche-web-abi2/src/worker-host.ts";
 import type { PinUnavailableError as PinUnavailableErrorContract } from "./types";
 

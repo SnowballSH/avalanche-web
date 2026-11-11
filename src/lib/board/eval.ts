@@ -1,5 +1,5 @@
-import type { Color } from "$lib/chess/types";
-import type { Fen, Score, ScoreBound } from "$lib/engine/types";
+import type { Color } from "#lib/chess/types.ts";
+import type { Fen, Score, ScoreBound } from "#lib/engine/types.ts";
 import { turnOf } from "./moves";
 
 export type PovScore = Score | { readonly kind: "checkmate"; readonly winner: Color };

@@ -1,11 +1,11 @@
 <script lang="ts">
 import { Callout, PageShell, Panel, Spinner } from "foundationui/svelte";
 import { onMount } from "svelte";
-import { getDefaultPin, setDefaultPin } from "$lib/pins/default-pin";
-import PinRow from "$lib/pins/PinRow.svelte";
-import { formatUsage } from "$lib/pins/pin-format";
-import { PinManager, type PinManagerState } from "$lib/pins/pin-manager";
-import { browserEngineRuntime } from "$lib/shared/engine-runtime";
+import { getDefaultPin, setDefaultPin } from "#lib/pins/default-pin.ts";
+import PinRow from "#lib/pins/PinRow.svelte";
+import { formatUsage } from "#lib/pins/pin-format.ts";
+import { PinManager, type PinManagerState } from "#lib/pins/pin-manager.ts";
+import { browserEngineRuntime } from "#lib/shared/engine-runtime.ts";
 
 let manager = $state.raw<PinManager | null>(null);
 let view = $state.raw<PinManagerState | null>(null);

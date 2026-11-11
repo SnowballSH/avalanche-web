@@ -2,9 +2,9 @@ import type { Dests, Key } from "@lichess-org/chessground/types";
 import type { Role } from "chessops";
 import { chessgroundDests } from "chessops/compat";
 import { parseSquare } from "chessops/util";
-import { moveToUci, positionFromFen } from "$lib/chess/fen";
-import type { Color } from "$lib/chess/types";
-import type { Fen, UciMove } from "$lib/engine/types";
+import { moveToUci, positionFromFen } from "#lib/chess/fen.ts";
+import type { Color } from "#lib/chess/types.ts";
+import type { Fen, UciMove } from "#lib/engine/types.ts";
 
 export type PromotionRole = Exclude<Role, "pawn" | "king">;
 

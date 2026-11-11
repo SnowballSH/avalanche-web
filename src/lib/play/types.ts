@@ -1,6 +1,6 @@
-import type { Color, GameResult, StartPosition } from "$lib/chess/types";
-import type { Score, UciMove } from "$lib/engine/types";
-import type { PinId } from "$lib/pins/types";
+import type { Color, GameResult, StartPosition } from "#lib/chess/types.ts";
+import type { Score, UciMove } from "#lib/engine/types.ts";
+import type { PinId } from "#lib/pins/types.ts";
 
 export type MonotonicNow = () => number;
 

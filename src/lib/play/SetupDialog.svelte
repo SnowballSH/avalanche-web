@@ -1,10 +1,10 @@
 <script lang="ts">
 import { Callout, Dialog, Input, Select } from "foundationui/svelte";
-import type { StartPosition } from "$lib/chess/types";
-import type { EngineCapabilities } from "$lib/engine/types";
-import type { PinEntry, PinId } from "$lib/pins/types";
-import StartPositionPicker from "$lib/shared/StartPositionPicker.svelte";
-import type { LinkedStart } from "$lib/shared/start-link";
+import type { StartPosition } from "#lib/chess/types.ts";
+import type { EngineCapabilities } from "#lib/engine/types.ts";
+import type { PinEntry, PinId } from "#lib/pins/types.ts";
+import StartPositionPicker from "#lib/shared/StartPositionPicker.svelte";
+import type { LinkedStart } from "#lib/shared/start-link.ts";
 import {
 	CUSTOM_TIME_CONTROL,
 	customTimeControl,

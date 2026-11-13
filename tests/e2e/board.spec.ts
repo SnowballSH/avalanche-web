@@ -79,6 +79,7 @@ test("a right-click drag draws an arrow and reports the shape", async ({ page })
 	await page.mouse.down({ button: "right" });
 	await page.mouse.move(end.x, end.y, { steps: 10 });
 	await expect(arrows).toHaveCount(1);
+	await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
 	await page.mouse.up({ button: "right" });
 	await expect(arrows).toHaveCount(1);
 	await expect(page.getByTestId("shapes")).toHaveText("e2e4");
